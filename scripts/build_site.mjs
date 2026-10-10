@@ -38,6 +38,8 @@ const search = [], files = new Map();
 let totalMath = 0;
 
 function linkTarget(href, source) {
+  const site = `https://zwdx.github.io/${key}-all-you-need-to-know/`;
+  if (href.startsWith(site)) return href.slice(site.length) || 'index.html';
   if (/^(?:[a-z]+:|\/\/)/i.test(href)) return href;
   const [location, fragment] = href.split('#');
   const target = location ? path.posix.normalize(path.posix.join(path.posix.dirname(source), decodeURIComponent(location))) : source;
@@ -68,8 +70,9 @@ function expectedMath(markdown) {
 
 for (const page of pages) {
   let markdown = read(page.source);
+  if (page.source === 'README.md') markdown = markdown.replace(/<!-- maintenance:start -->[\s\S]*?<!-- maintenance:end -->/, '');
   // Generated Markdown already supplies previous/next links; the website supplies them in its frame.
-  markdown = markdown.replace(/^\[(?:上一章|返回目录|项目首页)\][^\n]+\n\n(?:---\n\n)?/, '')
+  markdown = markdown.replace(/^\[(?:上一章|返回目录|项目首页)\][^\n]*\n\n(?:---\n\n)?/, '')
     .replace(/\n---\n\n\[(?:上一章|返回目录)\][^\n]+\n$/, '\n')
     .replace(/\*\*本章目录\*\*\n\n([\s\S]*?)\n\n/, '<details>\n<summary>本章目录</summary>\n\n$1\n\n</details>\n\n');
   const mathSource = [], errors = [];
@@ -127,6 +130,7 @@ for (const page of pages) {
   const previous = position > 1 ? pages[position-1] : null;
   const next = pages[position+1];
   const chapterNav = `<nav class="chapter-nav" aria-label="章节翻页">${previous ? `<a href="${previous.file}">← ${escape(plain(previous.title))}</a>` : ''}${next ? `<a href="${next.file}">${escape(plain(next.title))} →</a>` : ''}</nav>`;
+  const starNote = page.source.startsWith('docs/chapter-') ? `<aside class="star-note" aria-label="支持教程">这一章对你有帮助？欢迎 <a href="${repo}">在 GitHub 点亮 Star ☆</a>，方便回来复习，也帮助更多学习者发现这份教程。</aside>` : '';
   const styles = adaptor.outerHTML(svg.styleSheet(document));
   const cache = `<svg class="font-cache" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${adaptor.outerHTML(svg.fontCache.getCache())}</svg>`;
   files.set(page.file, `<!doctype html>
@@ -135,11 +139,12 @@ for (const page of pages) {
 <link rel="stylesheet" href="site.css">${styles}<script id="search-data" type="application/json">__SEARCH_INDEX__</script><script src="site.js" defer></script></head>
 <body>${cache}<a class="skip" href="#main">跳到正文</a>
 <header class="topbar"><div class="topbar-inner"><a class="brand" href="index.html">${topic}<small>ALL YOU NEED TO KNOW</small></a>
-<div class="top-links"><button id="open-search" type="button" aria-haspopup="dialog">搜索</button><a class="companion" href="https://zwdx.github.io/${companion}-all-you-need-to-know/">${companion.toUpperCase()} 教程</a><a href="${repo}">GitHub</a></div></div></header>
+<div class="top-links"><button id="open-search" type="button" aria-haspopup="dialog">搜索</button><button id="open-reading" type="button" aria-haspopup="dialog">阅读设置</button><a class="companion" href="https://zwdx.github.io/${companion}-all-you-need-to-know/">${companion.toUpperCase()} 教程</a><a href="${repo}" aria-label="在 GitHub 为 ${topic} 教程点亮 Star">☆ Star</a></div></div></header>
 <div class="layout"><aside class="sidebar"><details id="book-menu" open><summary>章节目录</summary><nav aria-label="章节目录"><ul>${menu}</ul></nav></details></aside>
-<main id="main" tabindex="-1"><p class="eyebrow">${topic} / 中文系统教程</p><article>${body}</article>${chapterNav}
-<footer>作者 <a href="https://github.com/zwdx">zwdx</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> · <a href="${repo}/issues">报告勘误</a> · <a href="${repo}/blob/main/${encodeURI(page.source)}">查看 Markdown 源文档</a></footer></main></div>
+<main id="main" tabindex="-1"><p class="eyebrow">${topic} / 中文系统教程</p><article>${body}</article>${starNote}${chapterNav}
+<footer>作者 <a href="https://github.com/zwdx">zwdx</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> · <a href="${repo}/issues">报告勘误</a></footer></main></div>
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="search-head"><h2 id="search-title">搜索教程</h2><button id="close-search" type="button" aria-label="关闭搜索">关闭</button></div><label for="search-input">章节名、概念或公式关键词</label><input id="search-input" type="search" autocomplete="off" placeholder="例如：GAE、长度偏差、重要性采样"><p id="search-status" role="status">输入章节名、概念或公式关键词。</p><ul id="search-results"></ul></dialog>
+<dialog id="reading-dialog" aria-labelledby="reading-title"><div class="search-head"><h2 id="reading-title">阅读设置</h2><button id="close-reading" type="button" aria-label="关闭阅读设置">关闭</button></div><label for="reading-size">正文字号 <output id="reading-size-value" for="reading-size">17 px</output></label><input id="reading-size" type="range" min="14" max="24" step="1" value="17"><label for="reading-spacing">行距</label><select id="reading-spacing"><option value="1.6">紧凑</option><option value="1.85" selected>标准</option><option value="2.1">宽松</option></select><p class="reading-hint">设置会自动记忆，并用于 PPO 与 GRPO 在线教程。公式随字号缩放，长公式可横向滚动。</p><button id="reset-reading" type="button">恢复默认</button></dialog>
 </body></html>\n`);
 }
 for (const [name, content] of [['site.css', read('scripts/site.css')], ['site.js', read('scripts/site.js')]]) {
@@ -164,6 +169,9 @@ for (const [name, html] of files) {
     if (fragment) assert(files.get(target).includes(`id="${fragment}"`), `${name}: Missing #${fragment} in ${target}`);
   }
   assert(!html.includes('data-mjx-error'));
+  for (const id of ['open-reading', 'reading-dialog', 'reading-size', 'reading-spacing', 'reset-reading']) assert(ids.includes(id), `${name}: Missing reading control ${id}`);
+  assert.equal(html.includes('class="star-note"'), name.startsWith('chapter-'), `${name}: Star reminder must follow chapters`);
+  assert(!/GitHub 分章阅读|完整单文件版|查看 Markdown 源文档/.test(html), `${name}: Old reading entrance`);
 }
 for (const entry of search) {
   const [file, fragment] = entry.url.split('#');

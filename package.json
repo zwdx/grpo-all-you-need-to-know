@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build_site.mjs",
-    "test": "node scripts/build_site.mjs --check"
+    "test": "node scripts/check_reading.mjs && node scripts/build_site.mjs --check"
   },
   "engines": {
     "node": ">=20"

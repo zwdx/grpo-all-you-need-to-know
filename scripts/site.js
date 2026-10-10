@@ -27,6 +27,33 @@ const fitInlineMath = () => {
 fitInlineMath();
 window.addEventListener('resize', fitInlineMath);
 
+const reading = document.querySelector('#reading-dialog');
+const size = document.querySelector('#reading-size');
+const spacing = document.querySelector('#reading-spacing');
+const readingKey = 'ppo-grpo-reading';
+const applyReading = value => {
+  const fontSize = Number.isInteger(value?.size) && value.size >= 14 && value.size <= 24 ? value.size : 17;
+  const lineHeight = [1.6, 1.85, 2.1].includes(value?.spacing) ? value.spacing : 1.85;
+  size.value = fontSize;
+  spacing.value = lineHeight;
+  document.querySelector('#reading-size-value').textContent = `${fontSize} px`;
+  document.documentElement.style.setProperty('--reading-size', `${fontSize}px`);
+  document.documentElement.style.setProperty('--reading-spacing', lineHeight);
+  fitInlineMath();
+  return {size:fontSize, spacing:lineHeight};
+};
+let savedReading;
+try { savedReading = JSON.parse(localStorage.getItem(readingKey)); } catch {}
+applyReading(savedReading);
+const saveReading = value => {
+  const settings = applyReading(value);
+  try { localStorage.setItem(readingKey, JSON.stringify(settings)); } catch {}
+};
+for (const control of [size, spacing]) control.addEventListener('input', () => saveReading({size:Number(size.value), spacing:Number(spacing.value)}));
+document.querySelector('#open-reading').addEventListener('click', () => reading.showModal());
+document.querySelector('#close-reading').addEventListener('click', () => reading.close());
+document.querySelector('#reset-reading').addEventListener('click', () => saveReading());
+
 const dialog = document.querySelector('#search-dialog');
 const input = document.querySelector('#search-input');
 const results = document.querySelector('#search-results');

@@ -1,4 +1,4 @@
-"""从仓库根目录的完整文档生成 GitHub 分章阅读版；--check 检查同步与链接。"""
+"""从完整文档生成网站章节输入与在线目录；--check 检查同步与链接。"""
 import re
 import sys
 from pathlib import Path
@@ -93,9 +93,9 @@ def generate(source):
     body = body.replace(title_line, title_line + '\n' + full_toc, 1)
     files = {source.name: body}
     intro_entries = [e for e in entries if e[0] < chapters[0][0]]
-    guide = '[项目首页](../README.md) · [完整单文件版](../' + source.name + ')\n\n'
+    guide = '[项目首页](../README.md)\n\n'
     guide += annotate(lines[:chapters[0][0]], intro_entries)
-    guide += '\n## 分章目录\n\n' + '\n'.join(f'- [{e[2]}](chapter-{e[4]:02d}.md)' for e in chapters) + '\n'
+    guide += '\n## 章节目录\n\n' + '\n'.join(f'- [{e[2]}](chapter-{e[4]:02d}.md)' for e in chapters) + '\n'
     files['docs/README.md'] = guide
     rows = ['| 章节 | 阅读入口 |', '|---|---|']
     for i, entry in enumerate(chapters):
@@ -112,7 +112,7 @@ def generate(source):
         chapter_body = fold_answers(annotate(lines[start:end], chapter_entries, start))
         chapter_body = chapter_body.replace('# ' + title + '\n', '# ' + title + '\n\n**本章目录**\n\n' + local_toc + '\n', 1)
         files[f'docs/chapter-{number:02d}.md'] = navigation + '\n\n---\n\n' + chapter_body + '\n---\n\n' + navigation + '\n'
-        rows.append(f'| {title} | [分章阅读](docs/chapter-{number:02d}.md) · [全文位置]({source.name}{HASH}{anchor}) |')
+        rows.append(f'| {title} | [在线阅读](https://zwdx.github.io/{ROOT.name}/chapter-{number:02d}.html) |')
     readme = (ROOT / 'README.md').read_text(encoding='utf-8').replace('.md#s', '.md' + HASH + 's')
     files['README.md'] = re.sub(r'<!-- chapters:start -->.*?<!-- chapters:end -->',
                                lambda _: '<!-- chapters:start -->\n' + '\n'.join(rows) + '\n<!-- chapters:end -->', readme, flags=re.S)
