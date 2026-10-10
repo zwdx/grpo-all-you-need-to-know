@@ -155,5 +155,5 @@ if __name__ == '__main__':
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding='utf-8', newline='\n')
     count = check_links({str(p.relative_to(ROOT)).replace('\\', '/'): p.read_text(encoding='utf-8')
-                         for p in ROOT.rglob('*.md') if '.git' not in p.parts})
+                         for p in [*ROOT.glob('*.md'), *(ROOT / 'docs').rglob('*.md')]})
     print(f'OK: {len(files)} generated documents, {count} valid local links')

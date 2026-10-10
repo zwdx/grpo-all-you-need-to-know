@@ -4,7 +4,7 @@
 
 中文学习笔记，以数学推导、算法理解与工程实践为主。建议先读 [PPO 学习文档](https://github.com/zwdx/ppo-all-you-need-to-know)，尤其是策略梯度、GAE、重要性采样与 PPO-Clip。
 
-**[开始阅读](docs/chapter-01.md)** · **[完整单文件版](GRPO系统学习文档.md)** · **[阅读路线、依赖关系与符号表](docs/README.md)** · [配套 PPO 文档](https://github.com/zwdx/ppo-all-you-need-to-know)
+**[在线阅读](https://zwdx.github.io/grpo-all-you-need-to-know/)** · **[GitHub 分章阅读](docs/chapter-01.md)** · **[完整单文件版](GRPO系统学习文档.md)** · **[阅读路线、依赖关系与符号表](docs/README.md)** · [配套 PPO 文档](https://github.com/zwdx/ppo-all-you-need-to-know)
 
 ## 你会沿着怎样的路线学习
 
@@ -42,7 +42,7 @@
 ## 阅读体验
 
 - 分章版提供本章目录、上一章、下一章与返回总目录；完整单文件版提供章与小节目录。
-- 公式直接使用 GitHub 的 LaTeX 渲染，代码块保留语法高亮；学习时建议手推关键公式。
+- 在线阅读版提供固定侧栏、站内搜索、公式源码复制与适配窄屏的横向滚动；公式在构建时由 MathJax 渲染。GitHub 分章版继续保留原生 Markdown 展示。
 - 卷首保留原文的逻辑主线、章节依赖、阅读路线与通用符号约定。
 
 ## 勘误与贡献
@@ -57,6 +57,17 @@ python scripts/build_docs.py --check
 ```
 
 公式维护：行内小于/大于号写成 `\lt` / `\gt`；表格中条件分隔用 `\mid`，单竖线用 `\lvert` / `\rvert`，双竖线用 `\Vert`。行间 `math` 围栏保持顶层，不缩进进列表。`--check` 会拦截这些已知渲染冲突。
+
+在线阅读站会在 `main` 更新后由 GitHub Actions 自动发布；公式解析错误会使构建失败。构建工具版本由 `package-lock.json` 锁定。本地预览需要 Node.js 20 或以上：
+
+```bash
+npm ci
+npm run build
+npm test
+python -m http.server 8000 --directory _site
+```
+
+浏览器打开 `http://localhost:8000`。网站读取同一套分章文档；先执行上方的 `build_docs.py` 同步 Markdown。
 
 ## 许可证
 
