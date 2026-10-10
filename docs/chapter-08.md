@@ -160,7 +160,7 @@ print("训练完成。检查 output_dir 中的日志与 checkpoint。")
 
 ### 8.2.1 奖励函数：规则奖励与防 hacking
 
-以下实现对应第 4 章的 $R(q, o) = f(\text{extract}(o), y^*)$，并针对第 4 章提到的 reward hacking 路径做了加固。
+以下实现对应第 4 章的 $`R(q, o) = f(\text{extract}(o), y^*)`$，并针对第 4 章提到的 reward hacking 路径做了加固。
 
 ```python
 import re
@@ -216,13 +216,13 @@ def math_verifier_reward(
         return 0.0
 ```
 
-**与理论的对应与差异**：第 4 章指出奖励尺度不变性（$R \to aR + b$ 时 $\hat{A}$ 不变，$a > 0$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
+**与理论的对应与差异**：第 4 章指出奖励尺度不变性（$`R \to aR + b`$ 时 $`\hat{A}`$ 不变，$`a > 0`$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
 
 <a name="s8-2-2"></a>
 
 ### 8.2.2 Rollout 与组采样：old_logprob 的正确获取
 
-这是 GRPO 实现中**最高频的错误点**。核心原则：**$\log \pi_{\theta_{old}}(o_{i,t}|\cdot)$ 必须在生成 rollout 的同一次前向传播中取出，或在 `torch.no_grad()` 下用完全相同的参数重算。** 绝不能事后再用更新过的模型计算——否则 old_logprob 与数据不匹配，比率 $r$ 从第一步就不为 1，clip 行为完全错乱。
+这是 GRPO 实现中**最高频的错误点**。核心原则：**$`\log \pi_{\theta_{old}}(o_{i,t}|\cdot)`$ 必须在生成 rollout 的同一次前向传播中取出，或在 `torch.no_grad()` 下用完全相同的参数重算。** 绝不能事后再用更新过的模型计算——否则 old_logprob 与数据不匹配，比率 $`r`$ 从第一步就不为 1，clip 行为完全错乱。
 
 ```python
 @torch.no_grad()
@@ -445,7 +445,7 @@ def compute_grpo_loss(
 ```
 
 **与理论的差异说明**：
-1. **k3 KL 估计器**：第 3 章证明了 k3 是无偏且恒非负的。代码中 `log_ratio_ref.exp() - log_ratio_ref - 1.0` 直接对应 k3 公式。当 `new_logprobs ≈ ref_logprobs` 时，该式二阶近似于 $(\Delta)^2/2$，数值行为良好。
+1. **k3 KL 估计器**：第 3 章证明了 k3 是无偏且恒非负的。代码中 `log_ratio_ref.exp() - log_ratio_ref - 1.0` 直接对应 k3 公式。当 `new_logprobs ≈ ref_logprobs` 时，该式二阶近似于 $`(\Delta)^2/2`$，数值行为良好。
 2. **对数域算比率**：承接 PPO 文档第 7 章的数值稳定性处理，避免直接做 `π_θ / π_{θ_old}` 导致的浮点溢出。
 3. **approx_kl 的二阶近似**：`(exp(logratio) - 1 - logratio)` 对应 PPO 文档第 7 章的 `approx_kl` 计算公式，它在 `logratio ≈ 0` 时近似于 `(logratio)²/2`，比直接用 `logratio.mean()` 更准确。
 
@@ -488,17 +488,17 @@ def build_completion_mask(
 
 ### 8.3.1 显存分解
 
-承接第 3 章的 $16\Phi$ 估算（GRPO 相比 PPO 省去了 critic 模型的 $8\Phi$），本节展开说明显存的具体构成。设模型参数量为 $\Phi$，精度为 bf16（2 字节/参数）。
+承接第 3 章的 $`16\Phi`$ 估算（GRPO 相比 PPO 省去了 critic 模型的 $`8\Phi`$），本节展开说明显存的具体构成。设模型参数量为 $`\Phi`$，精度为 bf16（2 字节/参数）。
 
 **训练侧显存**：
-- Policy 权重：$2\Phi$ 字节
-- 梯度：$2\Phi$ 字节
-- Adam 优化器状态（一阶矩 + 二阶矩）：$4\Phi + 4\Phi = 8\Phi$ 字节（fp32）
-- fp32 master weights（混合精度训练时）：$4\Phi$ 字节
-- **训练侧合计**：约 $16\Phi$ 字节（bf16 训练 + fp32 优化器状态）
+- Policy 权重：$`2\Phi`$ 字节
+- 梯度：$`2\Phi`$ 字节
+- Adam 优化器状态（一阶矩 + 二阶矩）：$`4\Phi + 4\Phi = 8\Phi`$ 字节（fp32）
+- fp32 master weights（混合精度训练时）：$`4\Phi`$ 字节
+- **训练侧合计**：约 $`16\Phi`$ 字节（bf16 训练 + fp32 优化器状态）
 
 **推理侧显存**：
-- Reference model 权重：$2\Phi$ 字节（仅权重，无梯度和优化器状态）
+- Reference model 权重：$`2\Phi`$ 字节（仅权重，无梯度和优化器状态）
 - Rollout 引擎（vLLM/SGLang）的 KV cache：与序列长度线性相关
 
 **KV Cache 估算式**：
@@ -507,9 +507,9 @@ $$
 \text{KV Cache} \approx 2 \times L \times H_{kv} \times d_{head} \times S \times B \times \text{bytes\_per\_elem}
 $$
 
-其中 $L$ 为层数，$H_{kv}$ 为 KV 头数（GQA 时小于注意力头数），$d_{head}$ 为头维度，$S$ 为序列长度，$B$ 为 batch size，`bytes_per_elem` 为精度字节数（bf16=2, fp16=2, fp32=4）。
+其中 $`L`$ 为层数，$`H_{kv}`$ 为 KV 头数（GQA 时小于注意力头数），$`d_{head}`$ 为头维度，$`S`$ 为序列长度，$`B`$ 为 batch size，`bytes_per_elem` 为精度字节数（bf16=2, fp16=2, fp32=4）。
 
-**长 CoT 的影响**：当 $S$ 从 512 增长到 8192 时，KV cache 增长 16 倍。对于 7B 模型（$L=32, H_{kv}=8, d_{head}=128$），$S=8192, B=32$ 时 KV cache 约 $2 \times 32 \times 8 \times 128 \times 8192 \times 32 \times 2 \approx 26.8$ GB。这就是为什么长 CoT 训练中 KV cache 往往比模型权重本身占用更多显存。
+**长 CoT 的影响**：当 $`S`$ 从 512 增长到 8192 时，KV cache 增长 16 倍。对于 7B 模型（$`L=32, H_{kv}=8, d_{head}=128`$），$`S=8192, B=32`$ 时 KV cache 约 $`2 \times 32 \times 8 \times 128 \times 8192 \times 32 \times 2 \approx 26.8`$ GB。这就是为什么长 CoT 训练中 KV cache 往往比模型权重本身占用更多显存。
 
 <a name="s8-3-2"></a>
 
@@ -517,13 +517,13 @@ $$
 
 | 技术 | 省了什么 | 代价 | 适用场景 |
 |------|---------|------|---------|
-| **LoRA / QLoRA** | 只训练低秩增量矩阵（通常 <1% 参数），省去大部分梯度和优化器状态。**关键优势**：关掉 adapter 就是 reference model，无需额外加载 ref model，直接省下 $2\Phi$ | 表达能力受限；QLoRA 的 4-bit 量化可能影响精度 | 中小规模微调，显存紧张时首选 |
+| **LoRA / QLoRA** | 只训练低秩增量矩阵（通常 <1% 参数），省去大部分梯度和优化器状态。**关键优势**：关掉 adapter 就是 reference model，无需额外加载 ref model，直接省下 $`2\Phi`$ | 表达能力受限；QLoRA 的 4-bit 量化可能影响精度 | 中小规模微调，显存紧张时首选 |
 | **Gradient Checkpointing** | 不保存中间激活值，反向传播时重算，省去激活显存 | 训练速度下降约 20%~30%（重算开销） | 序列较长或 batch 较大时 |
 | **优化器 Offload** | 将 Adam 状态卸载到 CPU 内存 | 显著降低训练速度（CPU↔GPU 传输瓶颈） | 显存极度紧张时的最后手段 |
-| **8-bit Adam** | 优化器状态从 fp32 压缩到 8-bit，省约 $6\Phi$ | 可能有轻微精度损失 | 大模型训练的常用选项 |
+| **8-bit Adam** | 优化器状态从 fp32 压缩到 8-bit，省约 $`6\Phi`$ | 可能有轻微精度损失 | 大模型训练的常用选项 |
 | **bf16 混合精度** | 前向/反向用 bf16，优化器状态保持 fp32 | 需要 Ampere+ GPU；某些操作需手动 cast | 几乎所有现代 LLM 训练的默认选择 |
 
-**LoRA 与 Reference Model 的关系**：这是一个重要的工程洞察。在 LoRA 设置下，reference model 就是 base model + 关闭的 adapter。因此不需要单独加载一份 reference model 权重，只需在前向时禁用 adapter 即可得到 ref_logprobs。这直接省下 $2\Phi$ 显存，对小显存环境意义重大。
+**LoRA 与 Reference Model 的关系**：这是一个重要的工程洞察。在 LoRA 设置下，reference model 就是 base model + 关闭的 adapter。因此不需要单独加载一份 reference model 权重，只需在前向时禁用 adapter 即可得到 ref_logprobs。这直接省下 $`2\Phi`$ 显存，对小显存环境意义重大。
 
 <a name="s8-3-3"></a>
 
@@ -571,11 +571,11 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 | 指标 | 数学含义 | 健康范围 | 异常时的排查方向 |
 |------|---------|---------|----------------|
-| **reward** | 平均奖励 $\mathbb{E}[r]$ | 稳步上升 | 不涨 → 看 accuracy 分布、zero_grad_ratio |
+| **reward** | 平均奖励 $`\mathbb{E}[r]`$ | 稳步上升 | 不涨 → 看 accuracy 分布、zero_grad_ratio |
 | **accuracy** | 通过率（二值奖励下的 reward 均值） | 从初始值逐步上升至 0.7~0.95 | 长期 ≈0 或 ≈1 → 信号枯竭（第 4 章），调整数据难度 |
 | **completion_length** | 平均回答长度 | 稳定或缓慢增长 | 单调暴涨而 reward 不涨 → 长度偏差/hacking（第 4、5 章）；暴跌 → 崩溃 |
-| **entropy** | 策略熵 $-\sum \pi \log \pi$ | 缓慢下降 | 快速崩塌 → clip-higher 要解决的问题（第 6 章），加熵正则 |
-| **approx_kl** | 新旧策略 KL 的二阶近似 $\exp(\delta)-1-\delta$ | <0.1 | 超阈值 → 更新步长过大，降学习率或增 G |
+| **entropy** | 策略熵 $`-\sum \pi \log \pi`$ | 缓慢下降 | 快速崩塌 → clip-higher 要解决的问题（第 6 章），加熵正则 |
+| **approx_kl** | 新旧策略 KL 的二阶近似 $`\exp(\delta)-1-\delta`$ | <0.1 | 超阈值 → 更新步长过大，降学习率或增 G |
 | **kl_to_ref** | 与 reference model 的 KL | 缓慢增长 | β=0 时这是**唯一偏离监控**（第 3 章），突增 → 策略退化 |
 | **clip_fraction** | 被 clip 的 token 占比 | K=1 时应 ≈0 | 非 0 → old_logprob 不匹配（实现 bug）或异步更新 |
 | **std_group** | 组内奖励标准差 | >0 且不过大 | ≈0 → 零梯度（第 2 章），增大 G 或调整难度 |
@@ -587,9 +587,9 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 ### 8.4.2 GRPO 特有的诊断逻辑
 
-**clip_fraction 的特殊含义**：承接第 3 章，当 $K=1$（单次更新，即生成数据后立即训练一步就丢弃）时，$\theta = \theta_{old}$，比率 $r_{i,t} = 1$ 恒成立，不应有任何 token 被 clip。若观察到 `clip_fraction > 0`，只有两种可能：(1) old_logprob 与 new_logprob 不匹配（实现 bug，见 8.5 节坑 #2）；(2) 使用了 $K > 1$ 的多 epoch 更新。这个诊断逻辑在调试时非常有价值。
+**clip_fraction 的特殊含义**：承接第 3 章，当 $`K=1`$（单次更新，即生成数据后立即训练一步就丢弃）时，$`\theta = \theta_{old}`$，比率 $`r_{i,t} = 1`$ 恒成立，不应有任何 token 被 clip。若观察到 `clip_fraction > 0`，只有两种可能：(1) old_logprob 与 new_logprob 不匹配（实现 bug，见 8.5 节坑 #2）；(2) 使用了 $`K > 1`$ 的多 epoch 更新。这个诊断逻辑在调试时非常有价值。
 
-**kl_to_ref 在 β=0 时的重要性**：RLVR 场景中常设 $\beta = 0$（去掉 KL 惩罚以获得更强的探索）。此时损失函数中没有 KL 项，但**必须仍然监控 kl_to_ref**。否则策略可能在不知不觉中严重偏离初始模型，导致语言质量崩坏（如输出乱码、重复、格式退化）而无任何预警。
+**kl_to_ref 在 β=0 时的重要性**：RLVR 场景中常设 $`\beta = 0`$（去掉 KL 惩罚以获得更强的探索）。此时损失函数中没有 KL 项，但**必须仍然监控 kl_to_ref**。否则策略可能在不知不觉中严重偏离初始模型，导致语言质量崩坏（如输出乱码、重复、格式退化）而无任何预警。
 
 **explained_variance 的缺失**：PPO 有 critic 网络提供价值估计，`explained_variance` 衡量 critic 对回报方差的解释比例。GRPO 没有 critic，用组内均值替代了价值函数，因此不存在这个指标。取而代之应监控组内基线的质量：G 的大小、std 的分布、zero_grad_ratio。
 
@@ -694,7 +694,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 本章完成了从理论到工程的最后一公里。以下是核心要点回顾：
 
 1. **框架选型有明确分层**：学习用 TRL，生产用 verl，特定算法看对应代码库。不要试图自己从零搭建生产级训练系统。
-2. **old_logprob 的正确获取是最高优先级**：它决定了比率 $r$ 的起点是否为 1，进而决定了 clip 行为是否正确。这是 GRPO 实现中最容易出错、后果最严重的环节。
+2. **old_logprob 的正确获取是最高优先级**：它决定了比率 $`r`$ 的起点是否为 1，进而决定了 clip 行为是否正确。这是 GRPO 实现中最容易出错、后果最严重的环节。
 3. **优势必须按 prompt 分组计算**：在整个 batch 上统计是最常见的 bug，会让不同 prompt 的奖励互相污染基线，训练信号完全错乱。
 4. **损失聚合方式直接影响长度偏差**：seq_mean 保留长度偏差，token_mean 消除长度偏差。选择哪种取决于是否需要 Dr.GRPO 修正。
 5. **β=0 时必须监控 kl_to_ref**：没有 KL 惩罚不等于不需要 KL 监控。策略偏离初始模型的程度必须有独立指标追踪。

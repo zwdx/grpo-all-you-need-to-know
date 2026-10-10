@@ -106,14 +106,14 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 
 | 符号 | 含义 |
 |---|---|
-| $q$ | prompt（提示词），在 MDP 视角下即初始状态 $s_0$ |
-| $o$ / $o_i$ | 一个完整回答（response / completion），即一条轨迹 |
-| $o_{i,t}$ | 第 $i$ 个回答的第 $t$ 个 token |
-| $o_{i,<t}$ | 第 $i$ 个回答中 $t$ 之前的所有 token（前缀） |
-| $\|o_i\|$ | 第 $i$ 个回答的 token 数（长度） |
-| $G$ | 组大小（group size），对同一 prompt 采样的回答数 |
-| $B$ | prompt 批大小（一个 batch 里的 prompt 数） |
-| $K$ | 内层更新的 epoch 数 |
+| $`q`$ | prompt（提示词），在 MDP 视角下即初始状态 $`s_0`$ |
+| $`o`$ / $`o_i`$ | 一个完整回答（response / completion），即一条轨迹 |
+| $`o_{i,t}`$ | 第 $`i`$ 个回答的第 $`t`$ 个 token |
+| $`o_{i,<t}`$ | 第 $`i`$ 个回答中 $`t`$ 之前的所有 token（前缀） |
+| $`\|o_i\|`$ | 第 $`i`$ 个回答的 token 数（长度） |
+| $`G`$ | 组大小（group size），对同一 prompt 采样的回答数 |
+| $`B`$ | prompt 批大小（一个 batch 里的 prompt 数） |
+| $`K`$ | 内层更新的 epoch 数 |
 
 <a name="h8"></a>
 
@@ -121,10 +121,10 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 
 | 符号 | 含义 |
 |---|---|
-| $\pi_\theta$ | 当前策略，即正在训练的语言模型 |
-| $\pi_{\theta_{old}}$ | 采样时的旧策略（rollout 用的模型快照） |
-| $\pi_{ref}$ | 参考模型（reference model），通常是 SFT 后的初始模型，仅用于 KL 约束 |
-| $R_\phi$ | 奖励模型（reward model），若使用 RM 而非规则奖励 |
+| $`\pi_\theta`$ | 当前策略，即正在训练的语言模型 |
+| $`\pi_{\theta_{old}}`$ | 采样时的旧策略（rollout 用的模型快照） |
+| $`\pi_{ref}`$ | 参考模型（reference model），通常是 SFT 后的初始模型，仅用于 KL 约束 |
+| $`R_\phi`$ | 奖励模型（reward model），若使用 RM 而非规则奖励 |
 
 <a name="h9"></a>
 
@@ -132,11 +132,11 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 
 | 符号 | 含义 |
 |---|---|
-| $r_i$ / $R(q, o_i)$ | 第 $i$ 个回答的奖励（标量，整条回答一个分数） |
-| $V^\pi(q)$ | 从 prompt $q$ 出发的期望回报，$= \mathbb{E}_{o\sim\pi}[R(q,o)]$ |
-| $\sigma^2(q)$ | 同一 prompt 下回答奖励的内在方差，$= \mathrm{Var}_{o\sim\pi}[R(q,o)]$ |
-| $\hat{A}_i$ | 第 $i$ 个回答的优势估计（序列级常量） |
-| $\hat{A}_{i,t}$ | token 级优势，GRPO 中 $\hat{A}_{i,t} = \hat{A}_i$ 对所有 $t$ 成立 |
+| $`r_i`$ / $`R(q, o_i)`$ | 第 $`i`$ 个回答的奖励（标量，整条回答一个分数） |
+| $`V^\pi(q)`$ | 从 prompt $`q`$ 出发的期望回报，$`= \mathbb{E}_{o\sim\pi}[R(q,o)]`$ |
+| $`\sigma^2(q)`$ | 同一 prompt 下回答奖励的内在方差，$`= \mathrm{Var}_{o\sim\pi}[R(q,o)]`$ |
+| $`\hat{A}_i`$ | 第 $`i`$ 个回答的优势估计（序列级常量） |
+| $`\hat{A}_{i,t}`$ | token 级优势，GRPO 中 $`\hat{A}_{i,t} = \hat{A}_i`$ 对所有 $`t`$ 成立 |
 
 <a name="h10"></a>
 
@@ -144,21 +144,21 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 
 | 符号 | 含义 |
 |---|---|
-| $r_{i,t}(\theta)$ | 逐 token 重要性采样比率，$= \pi_\theta(o_{i,t}\|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}\|q,o_{i,<t})$ |
-| $s_i(\theta)$ | GSPO 的序列级比率（token 级比率的几何平均，见第 7 章） |
-| $\varepsilon$ | clip 半径；DAPO 解耦为 $\varepsilon_{low}$、$\varepsilon_{high}$ |
-| $\beta$ | KL 惩罚系数 |
-| $D_{KL}[\pi_\theta \| \pi_{ref}]$ | KL 散度（定义与性质见 PPO 文档第 1 章） |
-| $\gamma$ | 折扣因子，LLM RL 实践中通常取 $1$ |
+| $`r_{i,t}(\theta)`$ | 逐 token 重要性采样比率，$`= \pi_\theta(o_{i,t}\|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}\|q,o_{i,<t})`$ |
+| $`s_i(\theta)`$ | GSPO 的序列级比率（token 级比率的几何平均，见第 7 章） |
+| $`\varepsilon`$ | clip 半径；DAPO 解耦为 $`\varepsilon_{low}`$、$`\varepsilon_{high}`$ |
+| $`\beta`$ | KL 惩罚系数 |
+| $`D_{KL}[\pi_\theta \| \pi_{ref}]`$ | KL 散度（定义与性质见 PPO 文档第 1 章） |
+| $`\gamma`$ | 折扣因子，LLM RL 实践中通常取 $`1`$ |
 
 <a name="h11"></a>
 
 ### 记号说明
 
 - **向量与矩阵**：小写粗体为向量，大写粗体为矩阵；本文档以标量推导为主。
-- **期望**：$\mathbb{E}_{x\sim p}[\cdot]$ 表示对 $x$ 在分布 $p$ 下取期望；下标省略时表示上下文默认分布。
-- **估计量**：带 $\hat{\cdot}$ 的量为估计量（如 $\hat{A}_i$、$\hat{D}_{KL}$），不带者为真值。
-- **梯度**：$\nabla_\theta$ 表示对策略参数 $\theta$ 求梯度。
+- **期望**：$`\mathbb{E}_{x\sim p}[\cdot]`$ 表示对 $`x`$ 在分布 $`p`$ 下取期望；下标省略时表示上下文默认分布。
+- **估计量**：带 $`\hat{\cdot}`$ 的量为估计量（如 $`\hat{A}_i`$、$`\hat{D}_{KL}`$），不带者为真值。
+- **梯度**：$`\nabla_\theta`$ 表示对策略参数 $`\theta`$ 求梯度。
 
 ---
 
