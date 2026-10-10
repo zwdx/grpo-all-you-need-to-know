@@ -175,7 +175,7 @@ CISPO 与 PPO/GRPO 在梯度层面的本质区别可以通过直接求导看出�
 
 **关键特征**：$`\nabla_\theta \log\pi_\theta`$ 项对**所有 token 都非零**。clip 只影响"这个 token 的权重多大"（通过 $`\text{sg}(\hat{r}^{IS}_{i,t})`$ 控制），而不影响"这个 token 有没有梯度"。即使某个 token 的原始比率 $`r^{IS}_{i,t}`$ 远超 clip 上界，它仍然以被裁剪后的权重 $`\varepsilon^{IS}_{high}`$ 参与梯度更新，而非被完全丢弃。
 
-对比 PPO/GRPO 的梯度：当 $`r_{i,t} > 1+\varepsilon`$ 且 $`\hat{A}_i > 0`$ 时，$`\min(r_{i,t}\hat{A}_i, \text{clip}(r_{i,t})\hat{A}_i) = (1+\varepsilon)\hat{A}_i`$，该项对 $`\theta`$ 的梯度为零（因为 clip 后的值是常数）。**Hard clip 直接杀死梯度，CISPO 的 detached 权重只是缩放梯度**——这是两者的本质区别。
+对比 PPO/GRPO 的梯度：当 $`r_{i,t} \gt  1+\varepsilon`$ 且 $`\hat{A}_i \gt  0`$ 时，$`\min(r_{i,t}\hat{A}_i, \text{clip}(r_{i,t})\hat{A}_i) = (1+\varepsilon)\hat{A}_i`$，该项对 $`\theta`$ 的梯度为零（因为 clip 后的值是常数）。**Hard clip 直接杀死梯度，CISPO 的 detached 权重只是缩放梯度**——这是两者的本质区别。
 
 <a id="s7-3-4"></a>
 

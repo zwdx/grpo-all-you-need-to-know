@@ -28,7 +28,7 @@
 - **旧策略（old policy）**：$`\pi_{\theta_{old}}`$ 是生成本批 rollout 时所使用的策略参数。在 on-policy 设定下 $`\theta_{old} = \theta`$；在多 epoch 或异步更新中 $`\theta_{old}`$ 可能滞后于当前 $`\theta`$。
 - **奖励**：$`r_i = R(q, o_i) \in \mathbb{R}`$，为标量，整条回答只有一个分数。这是 outcome reward 的标准设定（见第 1 章）。
 - **参考模型（reference model）**：$`\pi_{ref}`$，通常是 SFT 后的初始模型，在整个 RL 训练过程中参数固定不变，用于 KL 约束以防止策略偏离过远。
-- **词表**：$`\mathcal{V}`$，大小为 $`V`$。策略 $`\pi_\theta(\cdot | q, o_{<t})`$ 输出词表上的概率分布。
+- **词表**：$`\mathcal{V}`$，大小为 $`V`$。策略 $`\pi_\theta(\cdot | q, o_{\lt t})`$ 输出词表上的概率分布。
 
 以上符号贯穿本章所有公式。特别强调：$`|o_i|`$ 是变量而非定值，这一事实直接影响目标函数中的归一化方式，也是后续长度偏差问题的根源（详见第 5 章）。
 
@@ -72,7 +72,7 @@ r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}
 
 **② 内层平均 $`\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}`$**：对第 $`i`$ 个回答内的所有 token 位置取算术平均。**这个归一化需要特别注意**：它是对单条回答内部的 token 取平均，而不是对整个 batch 的所有 token 取平均。这意味着一条长度为 100 token 的回答和一条长度为 10 token 的回答，在目标函数中贡献的权重相同（都是 $`1/G`$），但前者将梯度信号分摊到了 100 个 token 上，每个 token 获得的梯度幅度仅为后者的 $`1/10`$。**这正是长度偏差（length bias）的数学根源**：短回答的每个 token 获得更强的梯度更新。完整的长度偏差分析与 Dr.GRPO 修正将在第 5 章展开，此处仅需记住这一结构特征。
 
-**③ 替代目标项 $`r_{i,t}(\theta)\,\hat{A}_{i,t}`$**：这是标准的 importance-weighted surrogate objective，承接 PPO 文档第 5、6 章的推导。比率 $`r_{i,t}`$ 修正了 off-policy 数据的分布偏移，$`\hat{A}_{i,t}`$ 提供了梯度方向。当 $`r_{i,t} > 1`$ 且 $`\hat{A}_i > 0`$ 时，乘积为正，梯度增大该 token 的概率；反之则减小。
+**③ 替代目标项 $`r_{i,t}(\theta)\,\hat{A}_{i,t}`$**：这是标准的 importance-weighted surrogate objective，承接 PPO 文档第 5、6 章的推导。比率 $`r_{i,t}`$ 修正了 off-policy 数据的分布偏移，$`\hat{A}_{i,t}`$ 提供了梯度方向。当 $`r_{i,t} \gt  1`$ 且 $`\hat{A}_i \gt  0`$ 时，乘积为正，梯度增大该 token 的概率；反之则减小。
 
 **④ 优势对所有 $`t`$ 取同一值 $`\hat{A}_{i,t} = \hat{A}_i`$**：这是 GRPO 与经典 PPO 最显著的结构差异之一。如第 1、2 章所述，在 outcome reward 设定下，奖励仅在序列末尾给出，所有 token 共享同一个 reward-to-go，因此 GAE 退化为常数（见 PPO 文档第 6 章及本文档第 2 章），GRPO 索性丢弃 GAE，直接用组内归一化的标量奖励作为每个 token 的优势。**代价是完全丧失了 token 级别的信用分配（credit assignment）**：一条错误回答中写得好的 token 和写得差的 token 收到完全相同的负优势信号。
 
@@ -103,7 +103,7 @@ L^{GRPO}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\l
 
 ### 3.3.1 问题陈述
 
-目标函数中的 $`\mathbb{D}_{KL}[\pi_\theta(\cdot|x) \| \pi_{ref}(\cdot|x)]`$（简写 $`x = (q, o_{i,<t})`$）定义为：
+目标函数中的 $`\mathbb{D}_{KL}[\pi_\theta(\cdot|x) \| \pi_{ref}(\cdot|x)]`$（简写 $`x = (q, o_{i,\lt t})`$）定义为：
 
 ```math
 \mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}] = \sum_{y \in \mathcal{V}} \pi_\theta(y|x) \log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}
@@ -186,9 +186,9 @@ Schulman 博客中还讨论了另外两种估计器，一并列出以供比较�
 
 | 估计器 | 公式 | 无偏性 | 非负性 | 方差 |
 |--------|------|--------|--------|------|
-| k1（朴素） | $`\log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}`$ | ✅ 无偏 | ❌ 可为负 | 大 |
-| k2（二次） | $`\frac{1}{2}\left(\log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}\right)^2`$ | ❌ 有偏 | ✅ 非负 | 小 |
-| k3 | $`\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - \log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - 1`$ | ✅ 无偏 | ✅ 非负 | 小 |
+| k1（朴素） | $`\log \frac{\pi_\theta(y\vert x)}{\pi_{ref}(y\vert x)}`$ | ✅ 无偏 | ❌ 可为负 | 大 |
+| k2（二次） | $`\frac{1}{2}\left(\log \frac{\pi_\theta(y\vert x)}{\pi_{ref}(y\vert x)}\right)^2`$ | ❌ 有偏 | ✅ 非负 | 小 |
+| k3 | $`\frac{\pi_{ref}(y\vert x)}{\pi_\theta(y\vert x)} - \log \frac{\pi_{ref}(y\vert x)}{\pi_\theta(y\vert x)} - 1`$ | ✅ 无偏 | ✅ 非负 | 小 |
 
 - **k1** 就是 KL 定义中的被期望量本身，显然无偏，但它是单个样本的对数比，方差大且可正可负。
 - **k2** 是 KL 的二阶近似（当 $`\pi_\theta \approx \pi_{ref}`$ 时 $`\text{KL} \approx \frac{1}{2}(\log \text{ratio})^2`$），非负且方差小，但它是有偏估计器，在策略偏离参考模型较远时偏差显著。
@@ -216,7 +216,7 @@ k3 估计器中 $`r = \pi_{ref}(y|x)/\pi_\theta(y|x)`$ 显式依赖于 $`\theta`
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \left(1 - \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right) \nabla_\theta \log \pi_\theta(y|x)
 ```
 
-这个梯度形式的直觉是：当 $`\pi_\theta(y|x) > \pi_{ref}(y|x)`$（即 $`r < 1`$）时，括号项为正，梯度方向与 $`\nabla_\theta \log \pi_\theta`$ 一致，但由于 KL 项前面有负号 $`-\beta`$，实际效果是**减小**该 token 的概率（把策略拉回参考模型）；反之亦然。
+这个梯度形式的直觉是：当 $`\pi_\theta(y|x) \gt  \pi_{ref}(y|x)`$（即 $`r \lt  1`$）时，括号项为正，梯度方向与 $`\nabla_\theta \log \pi_\theta`$ 一致，但由于 KL 项前面有负号 $`-\beta`$，实际效果是**减小**该 token 的概率（把策略拉回参考模型）；反之亦然。
 
 **实践警告**：许多实现中，KL 估计器的梯度会被部分 detach。例如，有些代码只对 $`-\log r`$ 部分保留梯度，而将 $`r`$ 视为常量（stop-gradient），或者反过来。不同的 detach 策略会改变 KL 项的有效梯度方向和大小。读者在使用现有框架时，务必检查 KL 项的梯度实现是否与理论一致。
 
@@ -260,17 +260,19 @@ k3 估计器中 $`r = \pi_{ref}(y|x)/\pi_\theta(y|x)`$ 显式依赖于 $`\theta`
 
 1. **采样 prompt 批次**：从 $`\mathcal{D}`$ 中抽取 $`B`$ 个 prompt $`\{q_1, \dots, q_B\}`$。
 
-2. **Rollout 生成**：用**当前策略** $`\pi_\theta`$ 对每个 $`q_b`$ 独立采样 $`G`$ 个回答 $`\{o_{b,1}, \dots, o_{b,G}\}`$。**同时记录**每个 token 的 $`\log \pi_\theta(o_{b,i,t} | q_b, o_{b,i,<t})`$。这一步必须在生成的同一次前向传播中完成，不能事后重新计算——因为浮点精度和非确定性算子可能导致重算结果不一致。
+2. **Rollout 生成**：用**当前策略** $`\pi_\theta`$ 对每个 $`q_b`$ 独立采样 $`G`$ 个回答 $`\{o_{b,1}, \dots, o_{b,G}\}`$。**同时记录**每个 token 的 $`\log \pi_\theta(o_{b,i,t} | q_b, o_{b,i,\lt t})`$。这一步必须在生成的同一次前向传播中完成，不能事后重新计算——因为浮点精度和非确定性算子可能导致重算结果不一致。
 
 3. **计算奖励**：对每个回答计算标量奖励 $`r_{b,i} = R(q_b, o_{b,i})`$。
 
 4. **计算组内优势**：对每个 prompt $`b`$，分别计算：
-   ```math
-   \bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)
-   ```
-   ```math
-   \hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}
-   ```
+
+```math
+\bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)
+```
+
+```math
+\hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}
+```
    其中 $`\epsilon_{num}`$ 是防止除零的小常数（如 $`10^{-8}`$）。若 $`\sigma_b = 0`$（全组奖励相同），则 $`\hat{A}_{b,i} = 0`$，该 prompt 在本 step 无梯度贡献。
 
 5. **冻结旧策略日志概率**：记 $`\log \pi_{\theta_{old}}(o_{b,i,t}|\cdot)`$ 为步骤 2 中记录的值。此后在内层循环中不再更新此值。
@@ -317,7 +319,7 @@ r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t}|\cdot)}{\pi_{\theta_{old}}(o_{i,t}|\c
 L^{GRPO}|_{K=1} = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\hat{A}_i - \beta\,\hat{D}_{KL,i,t}\right]
 ```
 
-这就是「带组内基线的 REINFORCE + KL 惩罚」。只有当 $`K > 1`$（或因异步/延迟更新导致 $`\theta_{old} \neq \theta`$）时，比率才会偏离 1，clip 才开始发挥限制更新幅度的作用。
+这就是「带组内基线的 REINFORCE + KL 惩罚」。只有当 $`K \gt  1`$（或因异步/延迟更新导致 $`\theta_{old} \neq \theta`$）时，比率才会偏离 1，clip 才开始发挥限制更新幅度的作用。
 
 **这个观察的实践意义**：很多 RLVR（Reinforcement Learning with Verifiable Rewards）实践中 $`K`$ 确实很小（1 或 2），甚至采用 partial rollout 策略，导致 clip 的实际作用远比想象中有限。读者在调参时应意识到：如果 $`K=1`$，调节 $`\varepsilon`$ 不会产生任何效果。
 

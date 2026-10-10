@@ -9,6 +9,7 @@ ANCHOR = re.compile(r'^<a (?:name|id)="[^"]+"></a>\n\n', re.M)
 TOC = re.compile(r'\n<!-- toc:start -->\n.*?<!-- toc:end -->\n\n', re.S)
 CHAPTER = re.compile(r'^第\s*(\d+)\s*章')
 HASH = '#user-content-'  # ponytail: GitHub prefixes HTML IDs; use '#' for a renderer that preserves IDs.
+INLINE = re.compile(r'\$`(?P<math>[^`\n]+)`\$|(?P<ticks>`+).*?(?P=ticks)')
 
 
 def headings(text):
@@ -18,10 +19,18 @@ def headings(text):
         if match:
             token, suffix = match.groups()
             if fence is None:
+                if suffix.strip() == 'math':
+                    assert not line.startswith(' '), f'第 {index + 1} 行：math 围栏须位于顶层，不能缩进进列表'
                 fence = token
             elif token[0] == fence[0] and len(token) >= len(fence) and not suffix.strip():
                 fence = None
             continue
+        if fence is None:
+            for item in INLINE.finditer(line):
+                tex = item['math']
+                if tex is not None:
+                    assert not re.search(r'[<>]', tex), f'第 {index + 1} 行：行内公式须用 \\lt / \\gt 避免 HTML 实体转义'
+                    assert not (line.startswith('|') and '|' in tex), f'第 {index + 1} 行：表格公式须用 \\mid、\\vert 或 \\Vert 避免切列与反斜杠丢失'
         match = re.match(r'^(#{1,6})\s+(.+?)\s*$', line) if fence is None else None
         if not match:
             continue

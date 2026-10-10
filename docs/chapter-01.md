@@ -37,9 +37,9 @@
 
 考虑一个 LLM 接收用户提问（prompt）$`q`$ 并生成回答（output）$`o = (o_1, o_2, \ldots, o_{|o|})`$ 的过程。我们将其建模为如下 MDP：
 
-- **状态（state）**：在时刻 $`t`$，状态为已生成的前缀，即 $`s_t = (q, o_{<t}) = (q, o_1, o_2, \ldots, o_{t-1})`$。特别地，初始状态 $`s_0 = q`$（尚未生成任何 token）。
+- **状态（state）**：在时刻 $`t`$，状态为已生成的前缀，即 $`s_t = (q, o_{\lt t}) = (q, o_1, o_2, \ldots, o_{t-1})`$。特别地，初始状态 $`s_0 = q`$（尚未生成任何 token）。
 - **动作（action）**：在时刻 $`t`$，动作为选择下一个 token $`o_t`$，动作空间为整个词表 $`\mathcal{V}`$。
-- **策略（policy）**：参数化的语言模型 $`\pi_\theta(o_t \mid q, o_{<t})`$，即在给定 prompt 和已生成前缀的条件下，输出词表上的概率分布。这正是自回归语言模型的标准定义。
+- **策略（policy）**：参数化的语言模型 $`\pi_\theta(o_t \mid q, o_{\lt t})`$，即在给定 prompt 和已生成前缀的条件下，输出词表上的概率分布。这正是自回归语言模型的标准定义。
 - **轨迹（trajectory）**：一条完整的回答 $`o = (o_1, \ldots, o_{|o|})`$ 就是一条从 $`s_0 = q`$ 出发、经过 $`|o|`$ 步转移后到达终止状态的轨迹。
 
 注意这里的"时刻"对应的是 token 生成的步数，而非物理时间。一条轨迹的长度 $`|o|`$ 是可变的，由模型的停止条件（生成 EOS token 或达到最大长度）决定。
@@ -71,7 +71,7 @@ R(q, o), & t = |o|
 G_t = \sum_{k=t}^{|o|} \gamma^{k-t} r_k
 ```
 
-其中 $`\gamma \in [0, 1]`$ 是折扣因子（discount factor）。将上述稀疏奖励结构代入：当 $`t < |o|`$ 时，$`r_t = r_{t+1} = \cdots = r_{|o|-1} = 0`$，唯一非零项是 $`r_{|o|} = R(q, o)`$，因此：
+其中 $`\gamma \in [0, 1]`$ 是折扣因子（discount factor）。将上述稀疏奖励结构代入：当 $`t \lt  |o|`$ 时，$`r_t = r_{t+1} = \cdots = r_{|o|-1} = 0`$，唯一非零项是 $`r_{|o|} = R(q, o)`$，因此：
 
 ```math
 G_t = \gamma^{|o|-t} \cdot R(q, o), \quad \forall \, t \leq |o|
@@ -91,7 +91,7 @@ G_t = R(q, o), \quad \forall \, t \leq |o|
 
 ### 1.2.4 折扣因子 $`\gamma`$ 的处境
 
-在经典 RL 中，$`\gamma < 1`$ 有两个作用：保证无穷 horizon 下回报收敛，以及编码时间偏好（即时奖励优于延迟奖励）。但在 LLM 后训练中：
+在经典 RL 中，$`\gamma \lt  1`$ 有两个作用：保证无穷 horizon 下回报收敛，以及编码时间偏好（即时奖励优于延迟奖励）。但在 LLM 后训练中：
 
 1. **Episode 天然有限**：每条回答的长度 $`|o|`$ 是有限的（通常上限为数千至数万 token），不存在无穷 horizon 的收敛问题。
 2. **无真正的时间偏好**：我们并不认为回答的前半部分比后半部分"更有价值"；评价标准是整条回答的整体质量。
@@ -102,7 +102,7 @@ G_t = R(q, o), \quad \forall \, t \leq |o|
 \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t), \quad \hat{A}_t^{\text{GAE}} = \sum_{l=0}^{|o|-t} (\gamma \lambda)^l \delta_{t+l}
 ```
 
-在 $`\gamma = 1`$ 且 $`r_t = 0`$（$`t < |o|`$）的条件下退化为：
+在 $`\gamma = 1`$ 且 $`r_t = 0`$（$`t \lt  |o|`$）的条件下退化为：
 
 ```math
 \delta_t = V(s_{t+1}) - V(s_t) \quad (t < |o|), \quad \delta_{|o|} = R(q,o) - V(s_{|o|})
@@ -152,7 +152,7 @@ Critic 不是免费附赠的——它自身也需要训练。在 PPO 的每个�
 
 ### 1.3.3 价值函数在长序列上的固有困难
 
-LLM 的回答长度可达数千甚至数万 token。critic 需要在每一个 token 位置 $`t`$ 都给出准确的价值估计 $`V(s_t) = \mathbb{E}[R(q, o) \mid q, o_{<t}]`$。这本质上是一个条件期望估计问题，其难度随以下条件增长：
+LLM 的回答长度可达数千甚至数万 token。critic 需要在每一个 token 位置 $`t`$ 都给出准确的价值估计 $`V(s_t) = \mathbb{E}[R(q, o) \mid q, o_{\lt t}]`$。这本质上是一个条件期望估计问题，其难度随以下条件增长：
 
 - **序列长度**：越长意味着 critic 需要整合越多的上下文信息才能做出准确预测。
 - **奖励稀疏性**：由于中间没有奖励信号，critic 无法利用逐步的反馈来校正自己的估计，只能依赖终端奖励的反向传播。
@@ -215,7 +215,7 @@ V^\pi(s_0 = q) = \mathbb{E}_{o \sim \pi(\cdot \mid q)} [R(q, o)]
 | 优势估计方式 | GAE：基于 critic 的 TD 残差加权求和 | 组内归一化：$`\hat{A}_i = (r_i - \bar{r}) / \sigma_r`$ |
 | 是否需要 critic | 是，且需与 actor 同步训练 | 否，完全去掉 |
 | 是否需要 GAE | 是，需选择 $`\lambda`$ | 否 |
-| KL 项的位置与形式 | 通常在奖励中塑形：$`r'_t = r_t - \beta D_{\text{KL}}[\pi_\theta \| \pi_{\text{ref}}]`$ | 直接写入损失函数作为独立正则项（见第 3 章） |
+| KL 项的位置与形式 | 通常在奖励中塑形：$`r'_t = r_t - \beta D_{\text{KL}}[\pi_\theta \Vert  \pi_{\text{ref}}]`$ | 直接写入损失函数作为独立正则项（见第 3 章） |
 | Clip 机制 | 对重要性采样比率 $`\rho_t = \pi_\theta / \pi_{\text{old}}`$ 做对称裁剪 $`[\!1-\epsilon, 1+\epsilon\!]`$ | 同样对逐 token 比率做裁剪，但优势为序列级标量（见第 3 章） |
 | 每 prompt 采样数 | 通常 1（on-policy）或少数几条 | $`G`$ 条（典型值 4–16） |
 | 显存中的模型数 | 4（policy + ref + critic + RM）或 3（规则奖励时） | 3（policy + ref + RM）或 2（规则奖励时） |
@@ -291,7 +291,7 @@ GRPO 的最大成功来自于它与 RLVR 范式的天然契合。RLVR 的核心�
 <details>
 <summary>查看参考答案</summary>
 
-参考答案：不成立。当 $`\gamma < 1`$ 时，$`G_t = \gamma^{|o|-t} R(q, o)`$，不同 $`t`$ 对应的 $`G_t`$ 因折扣因子幂次不同而不同。这意味着序列级优势假设不再精确成立，GRPO 需要要么接受由此引入的偏差，要么在优势计算中补偿折扣效应。实践中取 $`\gamma = 1`$ 正是为了避免这一问题。
+参考答案：不成立。当 $`\gamma \lt  1`$ 时，$`G_t = \gamma^{|o|-t} R(q, o)`$，不同 $`t`$ 对应的 $`G_t`$ 因折扣因子幂次不同而不同。这意味着序列级优势假设不再精确成立，GRPO 需要要么接受由此引入的偏差，要么在优势计算中补偿折扣效应。实践中取 $`\gamma = 1`$ 正是为了避免这一问题。
 
 </details>
 
@@ -309,7 +309,7 @@ GRPO 的最大成功来自于它与 RLVR 范式的天然契合。RLVR 的核心�
 <details>
 <summary>查看参考答案</summary>
 
-参考答案：GAE 中 $`\delta_t = r_t + V(s_{t+1}) - V(s_t)`$。在 outcome reward 下 $`r_t = 0`$（$`t < |o|`$），故 $`\delta_t = V(s_{t+1}) - V(s_t)`$ 完全是 critic 估计的差分。若 critic 有误差 $`\epsilon_t`$，则 $`\delta_t`$ 中包含 $`(\epsilon_{t+1} - \epsilon_t)`$，这些误差沿 GAE 加权求和时不会像真实信号那样 telescoping 消去，而是以随机游走的方式累积，可能导致 $`\hat{A}^{\text{GAE}}`$ 的方差反而大于直接使用蒙特卡洛回报 $`R(q,o)`$ 的方差。
+参考答案：GAE 中 $`\delta_t = r_t + V(s_{t+1}) - V(s_t)`$。在 outcome reward 下 $`r_t = 0`$（$`t \lt  |o|`$），故 $`\delta_t = V(s_{t+1}) - V(s_t)`$ 完全是 critic 估计的差分。若 critic 有误差 $`\epsilon_t`$，则 $`\delta_t`$ 中包含 $`(\epsilon_{t+1} - \epsilon_t)`$，这些误差沿 GAE 加权求和时不会像真实信号那样 telescoping 消去，而是以随机游走的方式累积，可能导致 $`\hat{A}^{\text{GAE}}`$ 的方差反而大于直接使用蒙特卡洛回报 $`R(q,o)`$ 的方差。
 
 </details>
 
@@ -318,7 +318,7 @@ GRPO 的最大成功来自于它与 RLVR 范式的天然契合。RLVR 的核心�
 <details>
 <summary>查看参考答案</summary>
 
-参考答案：当 $`G = 2`$ 时，$`\bar{r} = (r_1 + r_2)/2`$，$`\sigma_r = |r_1 - r_2|/2`$（总体标准差）。代入可得 $`\hat{A}_1 = \pm 1/\sqrt{2}`$，$`\hat{A}_2 = \mp 1/\sqrt{2}`$（符号取决于 $`r_1 > r_2`$ 还是 $`r_1 < r_2`$）。优势信号退化为二值，丧失了连续区分度，梯度更新方向的信息量极低，训练效率大幅下降。
+参考答案：当 $`G = 2`$ 时，$`\bar{r} = (r_1 + r_2)/2`$，$`\sigma_r = |r_1 - r_2|/2`$（总体标准差）。代入可得 $`\hat{A}_1 = \pm 1/\sqrt{2}`$，$`\hat{A}_2 = \mp 1/\sqrt{2}`$（符号取决于 $`r_1 \gt  r_2`$ 还是 $`r_1 \lt  r_2`$）。优势信号退化为二值，丧失了连续区分度，梯度更新方向的信息量极低，训练效率大幅下降。
 
 </details>
 

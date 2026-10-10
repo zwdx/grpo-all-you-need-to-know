@@ -329,7 +329,7 @@ RLVR 中最常见的奖励是二值的：$`r \in \{0, 1\}`$。设某个 prompt $
 
 ### 4.7.1 尺度不变性的证明
 
-GRPO 的优势定义为 $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$。考虑对奖励做仿射变换 $`r'_i = a r_i + b`$（$`a > 0`$），则：
+GRPO 的优势定义为 $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$。考虑对奖励做仿射变换 $`r'_i = a r_i + b`$（$`a \gt  0`$），则：
 
 ```math
 \bar{r}' = a\bar{r} + b, \quad \hat{\sigma}' = a\hat{\sigma},
@@ -404,7 +404,7 @@ J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\b
 5. **是否需要 KL 约束？**
    - 取决于两个因素：(a) 任务是否希望模型大幅偏离初始分布（长 CoT 探索通常需要）；(b) 输出退化的风险有多高（开放域生成风险高，封闭域推理风险低）。
    - *如果需要大幅偏离且退化风险可控*：可以去掉 KL 或设极小 $`\beta`$（如 DAPO）。
-   - *如果退化风险高*：保留 $`\beta > 0`$，或改用熵约束、长度惩罚等替代正则。
+   - *如果退化风险高*：保留 $`\beta \gt  0`$，或改用熵约束、长度惩罚等替代正则。
 
 <a id="s4-9"></a>
 
@@ -425,7 +425,7 @@ J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\b
 
 ### 自测题
 
-**题 1**：证明 GRPO 的优势 $`\hat{A}_i`$ 对奖励的仿射变换 $`r \mapsto ar+b`$（$`a>0`$）不变。如果同时存在 KL 惩罚项 $`\beta D_{\text{KL}}`$，奖励放大 $`a`$ 倍等价于对 $`\beta`$ 做了什么变换？
+**题 1**：证明 GRPO 的优势 $`\hat{A}_i`$ 对奖励的仿射变换 $`r \mapsto ar+b`$（$`a\gt 0`$）不变。如果同时存在 KL 惩罚项 $`\beta D_{\text{KL}}`$，奖励放大 $`a`$ 倍等价于对 $`\beta`$ 做了什么变换？
 
 <details>
 <summary>查看参考答案</summary>

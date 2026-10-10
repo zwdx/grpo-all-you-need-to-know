@@ -109,8 +109,8 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 | $`q`$ | prompt（提示词），在 MDP 视角下即初始状态 $`s_0`$ |
 | $`o`$ / $`o_i`$ | 一个完整回答（response / completion），即一条轨迹 |
 | $`o_{i,t}`$ | 第 $`i`$ 个回答的第 $`t`$ 个 token |
-| $`o_{i,<t}`$ | 第 $`i`$ 个回答中 $`t`$ 之前的所有 token（前缀） |
-| $`\|o_i\|`$ | 第 $`i`$ 个回答的 token 数（长度） |
+| $`o_{i,\lt t}`$ | 第 $`i`$ 个回答中 $`t`$ 之前的所有 token（前缀） |
+| $`\lvert o_i\rvert`$ | 第 $`i`$ 个回答的 token 数（长度） |
 | $`G`$ | 组大小（group size），对同一 prompt 采样的回答数 |
 | $`B`$ | prompt 批大小（一个 batch 里的 prompt 数） |
 | $`K`$ | 内层更新的 epoch 数 |
@@ -144,11 +144,11 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 
 | 符号 | 含义 |
 |---|---|
-| $`r_{i,t}(\theta)`$ | 逐 token 重要性采样比率，$`= \pi_\theta(o_{i,t}\|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}\|q,o_{i,<t})`$ |
+| $`r_{i,t}(\theta)`$ | 逐 token 重要性采样比率，$`= \pi_\theta(o_{i,t}\mid q,o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t}\mid q,o_{i,\lt t})`$ |
 | $`s_i(\theta)`$ | GSPO 的序列级比率（token 级比率的几何平均，见第 7 章） |
 | $`\varepsilon`$ | clip 半径；DAPO 解耦为 $`\varepsilon_{low}`$、$`\varepsilon_{high}`$ |
 | $`\beta`$ | KL 惩罚系数 |
-| $`D_{KL}[\pi_\theta \| \pi_{ref}]`$ | KL 散度（定义与性质见 PPO 文档第 1 章） |
+| $`D_{KL}[\pi_\theta \Vert  \pi_{ref}]`$ | KL 散度（定义与性质见 PPO 文档第 1 章） |
 | $`\gamma`$ | 折扣因子，LLM RL 实践中通常取 $`1`$ |
 
 <a id="h11"></a>

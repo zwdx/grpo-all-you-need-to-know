@@ -216,7 +216,7 @@ def math_verifier_reward(
         return 0.0
 ```
 
-**与理论的对应与差异**：第 4 章指出奖励尺度不变性（$`R \to aR + b`$ 时 $`\hat{A}`$ 不变，$`a > 0`$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
+**与理论的对应与差异**：第 4 章指出奖励尺度不变性（$`R \to aR + b`$ 时 $`\hat{A}`$ 不变，$`a \gt  0`$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
 
 <a id="s8-2-2"></a>
 
@@ -587,7 +587,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 ### 8.4.2 GRPO 特有的诊断逻辑
 
-**clip_fraction 的特殊含义**：承接第 3 章，当 $`K=1`$（单次更新，即生成数据后立即训练一步就丢弃）时，$`\theta = \theta_{old}`$，比率 $`r_{i,t} = 1`$ 恒成立，不应有任何 token 被 clip。若观察到 `clip_fraction > 0`，只有两种可能：(1) old_logprob 与 new_logprob 不匹配（实现 bug，见 8.5 节坑 #2）；(2) 使用了 $`K > 1`$ 的多 epoch 更新。这个诊断逻辑在调试时非常有价值。
+**clip_fraction 的特殊含义**：承接第 3 章，当 $`K=1`$（单次更新，即生成数据后立即训练一步就丢弃）时，$`\theta = \theta_{old}`$，比率 $`r_{i,t} = 1`$ 恒成立，不应有任何 token 被 clip。若观察到 `clip_fraction > 0`，只有两种可能：(1) old_logprob 与 new_logprob 不匹配（实现 bug，见 8.5 节坑 #2）；(2) 使用了 $`K \gt  1`$ 的多 epoch 更新。这个诊断逻辑在调试时非常有价值。
 
 **kl_to_ref 在 β=0 时的重要性**：RLVR 场景中常设 $`\beta = 0`$（去掉 KL 惩罚以获得更强的探索）。此时损失函数中没有 KL 项，但**必须仍然监控 kl_to_ref**。否则策略可能在不知不觉中严重偏离初始模型，导致语言质量崩坏（如输出乱码、重复、格式退化）而无任何预警。
 
@@ -622,7 +622,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 | 5 | 训练几乎无进展；advantage 全接近 0 | G 设得太小（如 2），std 估计极不可靠（第 2 章） | 至少 G≥8；推荐 G=16~64 |
 | 6 | NaN/Inf 出现在 loss 或梯度中 | 组内奖励全同时 std=0，除零产生 NaN（第 2 章） | 加 eps 保护（`std + 1e-4`）或用 `scale_rewards=False` |
 | 7 | zero_grad_ratio 持续很高；reward 停滞 | 数据难度失衡，几乎全对或全错，大量零梯度 prompt（第 4 章） | 难度过滤、课程学习、或 DAPO 动态采样（第 6 章） |
-| 8 | completion_length 持续暴涨而 reward 不涨 | 长度偏差或长度 hacking（第 4、5 章） | Dr.GRPO 修正（去 1/\|o_i\|）+ DAPO 超长软惩罚（第 6 章） |
+| 8 | completion_length 持续暴涨而 reward 不涨 | 长度偏差或长度 hacking（第 4、5 章） | Dr.GRPO 修正（去 $`1/\lvert o_i\rvert`$）+ DAPO 超长软惩罚（第 6 章） |
 | 9 | entropy 快速崩塌；多样性丧失 | 对称 clip 压制低概率 token（第 6 章） | clip-higher（ε_high > ε_low）或加熵正则 |
 | 10 | 语言质量悄悄退化（乱码/重复）但 loss 看起来正常 | β=0 且不监控 kl_to_ref，策略偏离初始模型而无察觉 | 即使不加 KL 惩罚也必须监控 kl_to_ref（见 8.4） |
 | 11 | reward 虚高但实际回答质量差 | verifier 可被绕过（多个 boxed、硬编码测试输出），reward hacking（第 4 章） | 加固抽取逻辑（见 8.2.1）+ 对抗性测试 |

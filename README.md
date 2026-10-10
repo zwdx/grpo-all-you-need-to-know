@@ -56,6 +56,8 @@ python scripts/build_docs.py
 python scripts/build_docs.py --check
 ```
 
+公式维护：行内小于/大于号写成 `\lt` / `\gt`；表格中条件分隔用 `\mid`，单竖线用 `\lvert` / `\rvert`，双竖线用 `\Vert`。行间 `math` 围栏保持顶层，不缩进进列表。`--check` 会拦截这些已知渲染冲突。
+
 ## 许可证
 
 本仓库采用 [Creative Commons Attribution 4.0 International（CC BY 4.0）](LICENSE)。转载或改编时请注明文档名称、作者 zwdx 与原仓库链接，并说明修改。

@@ -371,8 +371,8 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 | $`q`$ | prompt（提示词），在 MDP 视角下即初始状态 $`s_0`$ |
 | $`o`$ / $`o_i`$ | 一个完整回答（response / completion），即一条轨迹 |
 | $`o_{i,t}`$ | 第 $`i`$ 个回答的第 $`t`$ 个 token |
-| $`o_{i,<t}`$ | 第 $`i`$ 个回答中 $`t`$ 之前的所有 token（前缀） |
-| $`\|o_i\|`$ | 第 $`i`$ 个回答的 token 数（长度） |
+| $`o_{i,\lt t}`$ | 第 $`i`$ 个回答中 $`t`$ 之前的所有 token（前缀） |
+| $`\lvert o_i\rvert`$ | 第 $`i`$ 个回答的 token 数（长度） |
 | $`G`$ | 组大小（group size），对同一 prompt 采样的回答数 |
 | $`B`$ | prompt 批大小（一个 batch 里的 prompt 数） |
 | $`K`$ | 内层更新的 epoch 数 |
@@ -406,11 +406,11 @@ token 级比率与序列级奖励的粒度错配，在 MoE 上直接导致训练
 
 | 符号 | 含义 |
 |---|---|
-| $`r_{i,t}(\theta)`$ | 逐 token 重要性采样比率，$`= \pi_\theta(o_{i,t}\|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}\|q,o_{i,<t})`$ |
+| $`r_{i,t}(\theta)`$ | 逐 token 重要性采样比率，$`= \pi_\theta(o_{i,t}\mid q,o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t}\mid q,o_{i,\lt t})`$ |
 | $`s_i(\theta)`$ | GSPO 的序列级比率（token 级比率的几何平均，见第 7 章） |
 | $`\varepsilon`$ | clip 半径；DAPO 解耦为 $`\varepsilon_{low}`$、$`\varepsilon_{high}`$ |
 | $`\beta`$ | KL 惩罚系数 |
-| $`D_{KL}[\pi_\theta \| \pi_{ref}]`$ | KL 散度（定义与性质见 PPO 文档第 1 章） |
+| $`D_{KL}[\pi_\theta \Vert  \pi_{ref}]`$ | KL 散度（定义与性质见 PPO 文档第 1 章） |
 | $`\gamma`$ | 折扣因子，LLM RL 实践中通常取 $`1`$ |
 
 <a id="h11"></a>
@@ -461,9 +461,9 @@ GRPO 及其变体是一个**演进极快**的领域（2024–2026 年间新变�
 
 考虑一个 LLM 接收用户提问（prompt）$`q`$ 并生成回答（output）$`o = (o_1, o_2, \ldots, o_{|o|})`$ 的过程。我们将其建模为如下 MDP：
 
-- **状态（state）**：在时刻 $`t`$，状态为已生成的前缀，即 $`s_t = (q, o_{<t}) = (q, o_1, o_2, \ldots, o_{t-1})`$。特别地，初始状态 $`s_0 = q`$（尚未生成任何 token）。
+- **状态（state）**：在时刻 $`t`$，状态为已生成的前缀，即 $`s_t = (q, o_{\lt t}) = (q, o_1, o_2, \ldots, o_{t-1})`$。特别地，初始状态 $`s_0 = q`$（尚未生成任何 token）。
 - **动作（action）**：在时刻 $`t`$，动作为选择下一个 token $`o_t`$，动作空间为整个词表 $`\mathcal{V}`$。
-- **策略（policy）**：参数化的语言模型 $`\pi_\theta(o_t \mid q, o_{<t})`$，即在给定 prompt 和已生成前缀的条件下，输出词表上的概率分布。这正是自回归语言模型的标准定义。
+- **策略（policy）**：参数化的语言模型 $`\pi_\theta(o_t \mid q, o_{\lt t})`$，即在给定 prompt 和已生成前缀的条件下，输出词表上的概率分布。这正是自回归语言模型的标准定义。
 - **轨迹（trajectory）**：一条完整的回答 $`o = (o_1, \ldots, o_{|o|})`$ 就是一条从 $`s_0 = q`$ 出发、经过 $`|o|`$ 步转移后到达终止状态的轨迹。
 
 注意这里的"时刻"对应的是 token 生成的步数，而非物理时间。一条轨迹的长度 $`|o|`$ 是可变的，由模型的停止条件（生成 EOS token 或达到最大长度）决定。
@@ -495,7 +495,7 @@ R(q, o), & t = |o|
 G_t = \sum_{k=t}^{|o|} \gamma^{k-t} r_k
 ```
 
-其中 $`\gamma \in [0, 1]`$ 是折扣因子（discount factor）。将上述稀疏奖励结构代入：当 $`t < |o|`$ 时，$`r_t = r_{t+1} = \cdots = r_{|o|-1} = 0`$，唯一非零项是 $`r_{|o|} = R(q, o)`$，因此：
+其中 $`\gamma \in [0, 1]`$ 是折扣因子（discount factor）。将上述稀疏奖励结构代入：当 $`t \lt  |o|`$ 时，$`r_t = r_{t+1} = \cdots = r_{|o|-1} = 0`$，唯一非零项是 $`r_{|o|} = R(q, o)`$，因此：
 
 ```math
 G_t = \gamma^{|o|-t} \cdot R(q, o), \quad \forall \, t \leq |o|
@@ -515,7 +515,7 @@ G_t = R(q, o), \quad \forall \, t \leq |o|
 
 ### 1.2.4 折扣因子 $`\gamma`$ 的处境
 
-在经典 RL 中，$`\gamma < 1`$ 有两个作用：保证无穷 horizon 下回报收敛，以及编码时间偏好（即时奖励优于延迟奖励）。但在 LLM 后训练中：
+在经典 RL 中，$`\gamma \lt  1`$ 有两个作用：保证无穷 horizon 下回报收敛，以及编码时间偏好（即时奖励优于延迟奖励）。但在 LLM 后训练中：
 
 1. **Episode 天然有限**：每条回答的长度 $`|o|`$ 是有限的（通常上限为数千至数万 token），不存在无穷 horizon 的收敛问题。
 2. **无真正的时间偏好**：我们并不认为回答的前半部分比后半部分"更有价值"；评价标准是整条回答的整体质量。
@@ -526,7 +526,7 @@ G_t = R(q, o), \quad \forall \, t \leq |o|
 \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t), \quad \hat{A}_t^{\text{GAE}} = \sum_{l=0}^{|o|-t} (\gamma \lambda)^l \delta_{t+l}
 ```
 
-在 $`\gamma = 1`$ 且 $`r_t = 0`$（$`t < |o|`$）的条件下退化为：
+在 $`\gamma = 1`$ 且 $`r_t = 0`$（$`t \lt  |o|`$）的条件下退化为：
 
 ```math
 \delta_t = V(s_{t+1}) - V(s_t) \quad (t < |o|), \quad \delta_{|o|} = R(q,o) - V(s_{|o|})
@@ -576,7 +576,7 @@ Critic 不是免费附赠的——它自身也需要训练。在 PPO 的每个�
 
 ### 1.3.3 价值函数在长序列上的固有困难
 
-LLM 的回答长度可达数千甚至数万 token。critic 需要在每一个 token 位置 $`t`$ 都给出准确的价值估计 $`V(s_t) = \mathbb{E}[R(q, o) \mid q, o_{<t}]`$。这本质上是一个条件期望估计问题，其难度随以下条件增长：
+LLM 的回答长度可达数千甚至数万 token。critic 需要在每一个 token 位置 $`t`$ 都给出准确的价值估计 $`V(s_t) = \mathbb{E}[R(q, o) \mid q, o_{\lt t}]`$。这本质上是一个条件期望估计问题，其难度随以下条件增长：
 
 - **序列长度**：越长意味着 critic 需要整合越多的上下文信息才能做出准确预测。
 - **奖励稀疏性**：由于中间没有奖励信号，critic 无法利用逐步的反馈来校正自己的估计，只能依赖终端奖励的反向传播。
@@ -639,7 +639,7 @@ V^\pi(s_0 = q) = \mathbb{E}_{o \sim \pi(\cdot \mid q)} [R(q, o)]
 | 优势估计方式 | GAE：基于 critic 的 TD 残差加权求和 | 组内归一化：$`\hat{A}_i = (r_i - \bar{r}) / \sigma_r`$ |
 | 是否需要 critic | 是，且需与 actor 同步训练 | 否，完全去掉 |
 | 是否需要 GAE | 是，需选择 $`\lambda`$ | 否 |
-| KL 项的位置与形式 | 通常在奖励中塑形：$`r'_t = r_t - \beta D_{\text{KL}}[\pi_\theta \| \pi_{\text{ref}}]`$ | 直接写入损失函数作为独立正则项（见第 3 章） |
+| KL 项的位置与形式 | 通常在奖励中塑形：$`r'_t = r_t - \beta D_{\text{KL}}[\pi_\theta \Vert  \pi_{\text{ref}}]`$ | 直接写入损失函数作为独立正则项（见第 3 章） |
 | Clip 机制 | 对重要性采样比率 $`\rho_t = \pi_\theta / \pi_{\text{old}}`$ 做对称裁剪 $`[\!1-\epsilon, 1+\epsilon\!]`$ | 同样对逐 token 比率做裁剪，但优势为序列级标量（见第 3 章） |
 | 每 prompt 采样数 | 通常 1（on-policy）或少数几条 | $`G`$ 条（典型值 4–16） |
 | 显存中的模型数 | 4（policy + ref + critic + RM）或 3（规则奖励时） | 3（policy + ref + RM）或 2（规则奖励时） |
@@ -712,7 +712,7 @@ GRPO 的最大成功来自于它与 RLVR 范式的天然契合。RLVR 的核心�
 
 **题目 1**：在 LLM 后训练的 MDP 中，若取 $`\gamma = 0.99`$ 而非 $`\gamma = 1`$，§1.2.3 中"所有 token 共享同一个回报值"的结论是否仍然成立？如果不成立，写出 $`G_t`$ 的表达式，并说明这对 GRPO 的序列级优势假设意味着什么。
 
-参考答案：不成立。当 $`\gamma < 1`$ 时，$`G_t = \gamma^{|o|-t} R(q, o)`$，不同 $`t`$ 对应的 $`G_t`$ 因折扣因子幂次不同而不同。这意味着序列级优势假设不再精确成立，GRPO 需要要么接受由此引入的偏差，要么在优势计算中补偿折扣效应。实践中取 $`\gamma = 1`$ 正是为了避免这一问题。
+参考答案：不成立。当 $`\gamma \lt  1`$ 时，$`G_t = \gamma^{|o|-t} R(q, o)`$，不同 $`t`$ 对应的 $`G_t`$ 因折扣因子幂次不同而不同。这意味着序列级优势假设不再精确成立，GRPO 需要要么接受由此引入的偏差，要么在优势计算中补偿折扣效应。实践中取 $`\gamma = 1`$ 正是为了避免这一问题。
 
 **题目 2**：假设某 LLM 后训练任务使用 PPO，policy 和 critic 均为 70B 参数模型，reference 和 reward model 均为 7B。粗略估算去掉 critic 后节省的显存占比（仅考虑模型权重，忽略优化器状态和激活值）。
 
@@ -720,11 +720,11 @@ GRPO 的最大成功来自于它与 RLVR 范式的天然契合。RLVR 的核心�
 
 **题目 3**：为什么在 outcome reward 且 $`\gamma = 1`$ 的设定下，GAE 的方差缩减收益会被 critic 的拟合误差所抵消？请用 GAE 的递推公式简要说明。
 
-参考答案：GAE 中 $`\delta_t = r_t + V(s_{t+1}) - V(s_t)`$。在 outcome reward 下 $`r_t = 0`$（$`t < |o|`$），故 $`\delta_t = V(s_{t+1}) - V(s_t)`$ 完全是 critic 估计的差分。若 critic 有误差 $`\epsilon_t`$，则 $`\delta_t`$ 中包含 $`(\epsilon_{t+1} - \epsilon_t)`$，这些误差沿 GAE 加权求和时不会像真实信号那样 telescoping 消去，而是以随机游走的方式累积，可能导致 $`\hat{A}^{\text{GAE}}`$ 的方差反而大于直接使用蒙特卡洛回报 $`R(q,o)`$ 的方差。
+参考答案：GAE 中 $`\delta_t = r_t + V(s_{t+1}) - V(s_t)`$。在 outcome reward 下 $`r_t = 0`$（$`t \lt  |o|`$），故 $`\delta_t = V(s_{t+1}) - V(s_t)`$ 完全是 critic 估计的差分。若 critic 有误差 $`\epsilon_t`$，则 $`\delta_t`$ 中包含 $`(\epsilon_{t+1} - \epsilon_t)`$，这些误差沿 GAE 加权求和时不会像真实信号那样 telescoping 消去，而是以随机游走的方式累积，可能导致 $`\hat{A}^{\text{GAE}}`$ 的方差反而大于直接使用蒙特卡洛回报 $`R(q,o)`$ 的方差。
 
 **题目 4**：GRPO 中 $`G = 2`$ 时，$`\hat{A}_i = (r_i - \bar{r}) / \sigma_r`$ 只能取哪两个值？为什么这对训练有害？
 
-参考答案：当 $`G = 2`$ 时，$`\bar{r} = (r_1 + r_2)/2`$，$`\sigma_r = |r_1 - r_2|/2`$（总体标准差）。代入可得 $`\hat{A}_1 = \pm 1/\sqrt{2}`$，$`\hat{A}_2 = \mp 1/\sqrt{2}`$（符号取决于 $`r_1 > r_2`$ 还是 $`r_1 < r_2`$）。优势信号退化为二值，丧失了连续区分度，梯度更新方向的信息量极低，训练效率大幅下降。
+参考答案：当 $`G = 2`$ 时，$`\bar{r} = (r_1 + r_2)/2`$，$`\sigma_r = |r_1 - r_2|/2`$（总体标准差）。代入可得 $`\hat{A}_1 = \pm 1/\sqrt{2}`$，$`\hat{A}_2 = \mp 1/\sqrt{2}`$（符号取决于 $`r_1 \gt  r_2`$ 还是 $`r_1 \lt  r_2`$）。优势信号退化为二值，丧失了连续区分度，梯度更新方向的信息量极低，训练效率大幅下降。
 
 **题目 5**：如果一个任务的奖励需要通过调用 GPT-4 级别的模型来计算（每次调用耗时数秒、费用数美分），GRPO 相比 PPO 是否仍有优势？请从 compute-for-memory 交易的角度分析。
 
@@ -980,7 +980,7 @@ $`b_i^{\text{LOO}}`$ 基于 $`G-1`$ 个独立样本的均值，因此其方差�
 \text{Var}[\hat{A}_i] = \text{Var}[r_i] + \text{Var}[\hat{V}_G] - 2\text{Cov}(r_i, \hat{V}_G) = \sigma^2 + \frac{\sigma^2}{G} - \frac{2\sigma^2}{G} = \sigma^2 \cdot \frac{G-1}{G}
 ```
 
-有趣的是，全组均值优势的方差反而**更小**（因子 $`(G-1)/G < G/(G-1)`$），但这正是以偏差为代价换来的。这构成了一个经典的偏差-方差权衡（bias-variance tradeoff）。
+有趣的是，全组均值优势的方差反而**更小**（因子 $`(G-1)/G \lt  G/(G-1)`$），但这正是以偏差为代价换来的。这构成了一个经典的偏差-方差权衡（bias-variance tradeoff）。
 
 <a id="s2-3-5"></a>
 
@@ -1210,10 +1210,10 @@ Critic 的核心优势在于它是状态相关的：对于序列中的每个前�
 在 GRPO 的典型设定中：
 
 1. **$`\gamma = 1`$**：LLM 生成任务是有限步的，不需要折扣。
-2. **奖励只在末尾给出**：$`r_t = 0`$ 对所有 $`t < T`$，$`r_T = R(q, o)`$。
+2. **奖励只在末尾给出**：$`r_t = 0`$ 对所有 $`t \lt  T`$，$`r_T = R(q, o)`$。
 3. **没有训练的 critic**：GRPO 不使用 $`V(s_t)`$。
 
-在这些条件下考察 TD 残差。对于中间步 $`t < T`$：
+在这些条件下考察 TD 残差。对于中间步 $`t \lt  T`$：
 
 ```math
 \delta_t = 0 + V(s_{t+1}) - V(s_t)
@@ -1277,7 +1277,7 @@ Critic 的核心优势在于它是状态相关的：对于序列中的每个前�
 
 - DeepSeekMath 使用 $`G = 8`$ 量级的采样；
 - 多数后续工作使用 $`G \in [8, 64]`$；
-- $`G > 64`$ 的情况较少见，通常只在奖励方差极大或需要极高精度时使用。
+- $`G \gt  64`$ 的情况较少见，通常只在奖励方差极大或需要极高精度时使用。
 
 <a id="s2-8-4"></a>
 
@@ -1311,7 +1311,7 @@ Critic 的核心优势在于它是状态相关的：对于序列中的每个前�
 
 **题目 1.** 设 $`G=8`$，某 prompt 下模型回答的正确率 $`p=0.5`$（二值奖励），计算蒙特卡洛基线 $`\hat{V}_G`$ 的标准差。若要将该标准差降至 0.05 以下，至少需要多大的 $`G`$？
 
-参考答案：$`\sigma^2 = p(1-p) = 0.25`$，$`\text{SD}[\hat{V}_8] = \sqrt{0.25/8} \approx 0.177`$。要求 $`\sqrt{0.25/G} < 0.05`$，即 $`G > 0.25/0.0025 = 100`$，故至少需要 $`G = 101`$（取整数上界）。
+参考答案：$`\sigma^2 = p(1-p) = 0.25`$，$`\text{SD}[\hat{V}_8] = \sqrt{0.25/8} \approx 0.177`$。要求 $`\sqrt{0.25/G} \lt  0.05`$，即 $`G \gt  0.25/0.0025 = 100`$，故至少需要 $`G = 101`$（取整数上界）。
 
 **题目 2.** 证明命题 2.3 中的关系式 $`r_i - \bar{r} = \frac{G-1}{G}(r_i - b_i^{\text{LOO}})`$，并解释为什么这个关系在引入 std 归一化后不再成立。
 
@@ -1348,7 +1348,7 @@ Critic 的核心优势在于它是状态相关的：对于序列中的每个前�
 - **旧策略（old policy）**：$`\pi_{\theta_{old}}`$ 是生成本批 rollout 时所使用的策略参数。在 on-policy 设定下 $`\theta_{old} = \theta`$；在多 epoch 或异步更新中 $`\theta_{old}`$ 可能滞后于当前 $`\theta`$。
 - **奖励**：$`r_i = R(q, o_i) \in \mathbb{R}`$，为标量，整条回答只有一个分数。这是 outcome reward 的标准设定（见第 1 章）。
 - **参考模型（reference model）**：$`\pi_{ref}`$，通常是 SFT 后的初始模型，在整个 RL 训练过程中参数固定不变，用于 KL 约束以防止策略偏离过远。
-- **词表**：$`\mathcal{V}`$，大小为 $`V`$。策略 $`\pi_\theta(\cdot | q, o_{<t})`$ 输出词表上的概率分布。
+- **词表**：$`\mathcal{V}`$，大小为 $`V`$。策略 $`\pi_\theta(\cdot | q, o_{\lt t})`$ 输出词表上的概率分布。
 
 以上符号贯穿本章所有公式。特别强调：$`|o_i|`$ 是变量而非定值，这一事实直接影响目标函数中的归一化方式，也是后续长度偏差问题的根源（详见第 5 章）。
 
@@ -1392,7 +1392,7 @@ r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}
 
 **② 内层平均 $`\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}`$**：对第 $`i`$ 个回答内的所有 token 位置取算术平均。**这个归一化需要特别注意**：它是对单条回答内部的 token 取平均，而不是对整个 batch 的所有 token 取平均。这意味着一条长度为 100 token 的回答和一条长度为 10 token 的回答，在目标函数中贡献的权重相同（都是 $`1/G`$），但前者将梯度信号分摊到了 100 个 token 上，每个 token 获得的梯度幅度仅为后者的 $`1/10`$。**这正是长度偏差（length bias）的数学根源**：短回答的每个 token 获得更强的梯度更新。完整的长度偏差分析与 Dr.GRPO 修正将在第 5 章展开，此处仅需记住这一结构特征。
 
-**③ 替代目标项 $`r_{i,t}(\theta)\,\hat{A}_{i,t}`$**：这是标准的 importance-weighted surrogate objective，承接 PPO 文档第 5、6 章的推导。比率 $`r_{i,t}`$ 修正了 off-policy 数据的分布偏移，$`\hat{A}_{i,t}`$ 提供了梯度方向。当 $`r_{i,t} > 1`$ 且 $`\hat{A}_i > 0`$ 时，乘积为正，梯度增大该 token 的概率；反之则减小。
+**③ 替代目标项 $`r_{i,t}(\theta)\,\hat{A}_{i,t}`$**：这是标准的 importance-weighted surrogate objective，承接 PPO 文档第 5、6 章的推导。比率 $`r_{i,t}`$ 修正了 off-policy 数据的分布偏移，$`\hat{A}_{i,t}`$ 提供了梯度方向。当 $`r_{i,t} \gt  1`$ 且 $`\hat{A}_i \gt  0`$ 时，乘积为正，梯度增大该 token 的概率；反之则减小。
 
 **④ 优势对所有 $`t`$ 取同一值 $`\hat{A}_{i,t} = \hat{A}_i`$**：这是 GRPO 与经典 PPO 最显著的结构差异之一。如第 1、2 章所述，在 outcome reward 设定下，奖励仅在序列末尾给出，所有 token 共享同一个 reward-to-go，因此 GAE 退化为常数（见 PPO 文档第 6 章及本文档第 2 章），GRPO 索性丢弃 GAE，直接用组内归一化的标量奖励作为每个 token 的优势。**代价是完全丧失了 token 级别的信用分配（credit assignment）**：一条错误回答中写得好的 token 和写得差的 token 收到完全相同的负优势信号。
 
@@ -1423,7 +1423,7 @@ L^{GRPO}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\l
 
 ### 3.3.1 问题陈述
 
-目标函数中的 $`\mathbb{D}_{KL}[\pi_\theta(\cdot|x) \| \pi_{ref}(\cdot|x)]`$（简写 $`x = (q, o_{i,<t})`$）定义为：
+目标函数中的 $`\mathbb{D}_{KL}[\pi_\theta(\cdot|x) \| \pi_{ref}(\cdot|x)]`$（简写 $`x = (q, o_{i,\lt t})`$）定义为：
 
 ```math
 \mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}] = \sum_{y \in \mathcal{V}} \pi_\theta(y|x) \log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}
@@ -1506,9 +1506,9 @@ Schulman 博客中还讨论了另外两种估计器，一并列出以供比较�
 
 | 估计器 | 公式 | 无偏性 | 非负性 | 方差 |
 |--------|------|--------|--------|------|
-| k1（朴素） | $`\log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}`$ | ✅ 无偏 | ❌ 可为负 | 大 |
-| k2（二次） | $`\frac{1}{2}\left(\log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}\right)^2`$ | ❌ 有偏 | ✅ 非负 | 小 |
-| k3 | $`\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - \log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - 1`$ | ✅ 无偏 | ✅ 非负 | 小 |
+| k1（朴素） | $`\log \frac{\pi_\theta(y\vert x)}{\pi_{ref}(y\vert x)}`$ | ✅ 无偏 | ❌ 可为负 | 大 |
+| k2（二次） | $`\frac{1}{2}\left(\log \frac{\pi_\theta(y\vert x)}{\pi_{ref}(y\vert x)}\right)^2`$ | ❌ 有偏 | ✅ 非负 | 小 |
+| k3 | $`\frac{\pi_{ref}(y\vert x)}{\pi_\theta(y\vert x)} - \log \frac{\pi_{ref}(y\vert x)}{\pi_\theta(y\vert x)} - 1`$ | ✅ 无偏 | ✅ 非负 | 小 |
 
 - **k1** 就是 KL 定义中的被期望量本身，显然无偏，但它是单个样本的对数比，方差大且可正可负。
 - **k2** 是 KL 的二阶近似（当 $`\pi_\theta \approx \pi_{ref}`$ 时 $`\text{KL} \approx \frac{1}{2}(\log \text{ratio})^2`$），非负且方差小，但它是有偏估计器，在策略偏离参考模型较远时偏差显著。
@@ -1536,7 +1536,7 @@ k3 估计器中 $`r = \pi_{ref}(y|x)/\pi_\theta(y|x)`$ 显式依赖于 $`\theta`
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \left(1 - \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right) \nabla_\theta \log \pi_\theta(y|x)
 ```
 
-这个梯度形式的直觉是：当 $`\pi_\theta(y|x) > \pi_{ref}(y|x)`$（即 $`r < 1`$）时，括号项为正，梯度方向与 $`\nabla_\theta \log \pi_\theta`$ 一致，但由于 KL 项前面有负号 $`-\beta`$，实际效果是**减小**该 token 的概率（把策略拉回参考模型）；反之亦然。
+这个梯度形式的直觉是：当 $`\pi_\theta(y|x) \gt  \pi_{ref}(y|x)`$（即 $`r \lt  1`$）时，括号项为正，梯度方向与 $`\nabla_\theta \log \pi_\theta`$ 一致，但由于 KL 项前面有负号 $`-\beta`$，实际效果是**减小**该 token 的概率（把策略拉回参考模型）；反之亦然。
 
 **实践警告**：许多实现中，KL 估计器的梯度会被部分 detach。例如，有些代码只对 $`-\log r`$ 部分保留梯度，而将 $`r`$ 视为常量（stop-gradient），或者反过来。不同的 detach 策略会改变 KL 项的有效梯度方向和大小。读者在使用现有框架时，务必检查 KL 项的梯度实现是否与理论一致。
 
@@ -1580,17 +1580,19 @@ k3 估计器中 $`r = \pi_{ref}(y|x)/\pi_\theta(y|x)`$ 显式依赖于 $`\theta`
 
 1. **采样 prompt 批次**：从 $`\mathcal{D}`$ 中抽取 $`B`$ 个 prompt $`\{q_1, \dots, q_B\}`$。
 
-2. **Rollout 生成**：用**当前策略** $`\pi_\theta`$ 对每个 $`q_b`$ 独立采样 $`G`$ 个回答 $`\{o_{b,1}, \dots, o_{b,G}\}`$。**同时记录**每个 token 的 $`\log \pi_\theta(o_{b,i,t} | q_b, o_{b,i,<t})`$。这一步必须在生成的同一次前向传播中完成，不能事后重新计算——因为浮点精度和非确定性算子可能导致重算结果不一致。
+2. **Rollout 生成**：用**当前策略** $`\pi_\theta`$ 对每个 $`q_b`$ 独立采样 $`G`$ 个回答 $`\{o_{b,1}, \dots, o_{b,G}\}`$。**同时记录**每个 token 的 $`\log \pi_\theta(o_{b,i,t} | q_b, o_{b,i,\lt t})`$。这一步必须在生成的同一次前向传播中完成，不能事后重新计算——因为浮点精度和非确定性算子可能导致重算结果不一致。
 
 3. **计算奖励**：对每个回答计算标量奖励 $`r_{b,i} = R(q_b, o_{b,i})`$。
 
 4. **计算组内优势**：对每个 prompt $`b`$，分别计算：
-   ```math
-   \bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)
-   ```
-   ```math
-   \hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}
-   ```
+
+```math
+\bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)
+```
+
+```math
+\hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}
+```
    其中 $`\epsilon_{num}`$ 是防止除零的小常数（如 $`10^{-8}`$）。若 $`\sigma_b = 0`$（全组奖励相同），则 $`\hat{A}_{b,i} = 0`$，该 prompt 在本 step 无梯度贡献。
 
 5. **冻结旧策略日志概率**：记 $`\log \pi_{\theta_{old}}(o_{b,i,t}|\cdot)`$ 为步骤 2 中记录的值。此后在内层循环中不再更新此值。
@@ -1637,7 +1639,7 @@ r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t}|\cdot)}{\pi_{\theta_{old}}(o_{i,t}|\c
 L^{GRPO}|_{K=1} = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\hat{A}_i - \beta\,\hat{D}_{KL,i,t}\right]
 ```
 
-这就是「带组内基线的 REINFORCE + KL 惩罚」。只有当 $`K > 1`$（或因异步/延迟更新导致 $`\theta_{old} \neq \theta`$）时，比率才会偏离 1，clip 才开始发挥限制更新幅度的作用。
+这就是「带组内基线的 REINFORCE + KL 惩罚」。只有当 $`K \gt  1`$（或因异步/延迟更新导致 $`\theta_{old} \neq \theta`$）时，比率才会偏离 1，clip 才开始发挥限制更新幅度的作用。
 
 **这个观察的实践意义**：很多 RLVR（Reinforcement Learning with Verifiable Rewards）实践中 $`K`$ 确实很小（1 或 2），甚至采用 partial rollout 策略，导致 clip 的实际作用远比想象中有限。读者在调参时应意识到：如果 $`K=1`$，调节 $`\varepsilon`$ 不会产生任何效果。
 
@@ -2115,7 +2117,7 @@ RLVR 中最常见的奖励是二值的：$`r \in \{0, 1\}`$。设某个 prompt $
 
 ### 4.7.1 尺度不变性的证明
 
-GRPO 的优势定义为 $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$。考虑对奖励做仿射变换 $`r'_i = a r_i + b`$（$`a > 0`$），则：
+GRPO 的优势定义为 $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$。考虑对奖励做仿射变换 $`r'_i = a r_i + b`$（$`a \gt  0`$），则：
 
 ```math
 \bar{r}' = a\bar{r} + b, \quad \hat{\sigma}' = a\hat{\sigma},
@@ -2190,7 +2192,7 @@ J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\b
 5. **是否需要 KL 约束？**
    - 取决于两个因素：(a) 任务是否希望模型大幅偏离初始分布（长 CoT 探索通常需要）；(b) 输出退化的风险有多高（开放域生成风险高，封闭域推理风险低）。
    - *如果需要大幅偏离且退化风险可控*：可以去掉 KL 或设极小 $`\beta`$（如 DAPO）。
-   - *如果退化风险高*：保留 $`\beta > 0`$，或改用熵约束、长度惩罚等替代正则。
+   - *如果退化风险高*：保留 $`\beta \gt  0`$，或改用熵约束、长度惩罚等替代正则。
 
 <a id="s4-9"></a>
 
@@ -2211,7 +2213,7 @@ J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\b
 
 ### 自测题
 
-**题 1**：证明 GRPO 的优势 $`\hat{A}_i`$ 对奖励的仿射变换 $`r \mapsto ar+b`$（$`a>0`$）不变。如果同时存在 KL 惩罚项 $`\beta D_{\text{KL}}`$，奖励放大 $`a`$ 倍等价于对 $`\beta`$ 做了什么变换？
+**题 1**：证明 GRPO 的优势 $`\hat{A}_i`$ 对奖励的仿射变换 $`r \mapsto ar+b`$（$`a\gt 0`$）不变。如果同时存在 KL 惩罚项 $`\beta D_{\text{KL}}`$，奖励放大 $`a`$ 倍等价于对 $`\beta`$ 做了什么变换？
 
 参考答案：$`\hat{A}'_i = (ar_i+b - (a\bar{r}+b))/(a\hat{\sigma}) = (r_i-\bar{r})/\hat{\sigma} = \hat{A}_i`$。KL 项不受奖励变换影响，因此奖励放大 $`a`$ 倍等价于 $`\beta`$ 缩小为 $`\beta/a`$（即 KL 约束的相对权重降低 $`a`$ 倍）。
 
@@ -2266,7 +2268,7 @@ J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\b
 L^{\text{GRPO}}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\hat{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
 ```
 
-其中 $`r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}|q,o_{i,<t})`$ 为逐 token 重要性比率，$`\hat{A}_i = (r_i - \text{mean})/\text{std}`$ 为组内归一化优势。
+其中 $`r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q,o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t}|q,o_{i,\lt t})`$ 为逐 token 重要性比率，$`\hat{A}_i = (r_i - \text{mean})/\text{std}`$ 为组内归一化优势。
 
 本节暂时忽略 KL 项和 clip 机制（它们不影响长度偏差的分析），聚焦于替代目标部分。对于第 $`i`$ 个回答，其对损失的贡献为：
 
@@ -2286,7 +2288,7 @@ L_i(\theta) = -\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i
 
 这个表达式的结构非常清晰：**整个回答的梯度方向由 $`\sum_t \nabla_\theta \log \pi_\theta`$ 决定（这是标准的 REINFORCE 梯度方向），但其幅度被因子 $`\hat{A}_i / |o_i|`$ 所缩放。**
 
-关键观察：**同一个优势值 $`\hat{A}_i`$，作用在不同长度的回答上时，每个 token 分到的梯度权重是 $`\hat{A}_i / |o_i|`$。** 设同一 prompt 下有两个回答 $`o_a`$ 和 $`o_b`$，具有相同的优势值 $`\hat{A}`$，但 $`|o_a| < |o_b|`$，则：
+关键观察：**同一个优势值 $`\hat{A}_i`$，作用在不同长度的回答上时，每个 token 分到的梯度权重是 $`\hat{A}_i / |o_i|`$。** 设同一 prompt 下有两个回答 $`o_a`$ 和 $`o_b`$，具有相同的优势值 $`\hat{A}`$，但 $`|o_a| \lt  |o_b|`$，则：
 
 ```math
 \frac{|\hat{A}|}{|o_a|} > \frac{|\hat{A}|}{|o_b|}
@@ -2300,9 +2302,9 @@ L_i(\theta) = -\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i
 
 这是 Dr.GRPO 论文的关键洞察。$`(1/|o_i|)`$ 引入的并非简单的"短回答权重更大"，而是一种**与优势符号耦合的不对称效应**。我们分两种情况讨论。
 
-**情形 1：$`\hat{A}_i > 0`$（正确回答，正优势）。** 此时梯度方向是增大各 token 的生成概率（正向更新）。由于短回答每个 token 获得的正向更新幅度 $`\hat{A}_i/|o_i|`$ 更大，策略被推向"在正确答案中偏好更简洁的表达"。也就是说，如果模型生成了两个都正确的回答，一个长一个短，短回答对策略参数的"拉力"更强。
+**情形 1：$`\hat{A}_i \gt  0`$（正确回答，正优势）。** 此时梯度方向是增大各 token 的生成概率（正向更新）。由于短回答每个 token 获得的正向更新幅度 $`\hat{A}_i/|o_i|`$ 更大，策略被推向"在正确答案中偏好更简洁的表达"。也就是说，如果模型生成了两个都正确的回答，一个长一个短，短回答对策略参数的"拉力"更强。
 
-**情形 2：$`\hat{A}_i < 0`$（错误回答，负优势）。** 此时梯度方向是减小各 token 的生成概率（负向更新，即惩罚）。长回答的 $`|o_i|`$ 更大，$`(1/|o_i|)`$ 使惩罚被摊薄，每个 token 受到的负向更新幅度 $`|\hat{A}_i|/|o_i|`$ 更小。也就是说，如果模型生成了两个都错误的回答，一个长一个短，长回答对策略参数的"推力"反而更弱——**惩罚不够狠**。
+**情形 2：$`\hat{A}_i \lt  0`$（错误回答，负优势）。** 此时梯度方向是减小各 token 的生成概率（负向更新，即惩罚）。长回答的 $`|o_i|`$ 更大，$`(1/|o_i|)`$ 使惩罚被摊薄，每个 token 受到的负向更新幅度 $`|\hat{A}_i|/|o_i|`$ 更小。也就是说，如果模型生成了两个都错误的回答，一个长一个短，长回答对策略参数的"推力"反而更弱——**惩罚不够狠**。
 
 **合起来的净效应**：GRPO 系统性地鼓励"对就简短、错就啰嗦"的行为模式。这是一种与推理质量完全无关的长度偏置（length bias），其根源纯粹是目标函数中 $`(1/|o_i|)`$ 这一归一化项。
 
@@ -2485,8 +2487,8 @@ L_{\text{token-mean}} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o
 
 | 聚合方式 | 数学形式 | 长度偏差 | 长短混合 batch 行为 |
 |---------|---------|---------|-------------------|
-| Sequence-mean | $`\frac{1}{G}\sum_i \frac{1}{\|o_i\|}\sum_t \ell_{i,t}`$ | 有 | 短回答每个 token 权重更大 |
-| Token-mean | $`\frac{1}{\sum\|o_i\|}\sum_i\sum_t \ell_{i,t}`$ | 无 | 每个 token 权重相同 |
+| Sequence-mean | $`\frac{1}{G}\sum_i \frac{1}{\lvert o_i\rvert}\sum_t \ell_{i,t}`$ | 有 | 短回答每个 token 权重更大 |
+| Token-mean | $`\frac{1}{\sum\lvert o_i\rvert}\sum_i\sum_t \ell_{i,t}`$ | 无 | 每个 token 权重相同 |
 | DAPO token-level | 类似 token-mean + 动态采样 | 无 | 每个 token 权重相同 + 过滤无效 prompt |
 
 <a id="s5-4-2"></a>
@@ -2635,7 +2637,7 @@ Dr.GRPO 选择了"无偏"而放弃了"长度不变"。在实践中，这意味�
 
 **题 2**：解释为什么 GRPO 的长度偏差会导致"对就简短、错就啰嗦"的净效应。具体要求：分别说明正优势和负优势情形下 $`(1/|o_i|)`$ 的作用方向，并解释为什么两者合起来构成一种与推理质量无关的长度偏置。
 
-参考答案：正优势时（$`\hat{A}>0`$，正确回答），$`(1/|o_i|)`$ 使短回答每 token 获得更大的正向更新，策略偏好简洁的正确表达。负优势时（$`\hat{A}<0`$，错误回答），$`(1/|o_i|)`$ 使长回答每 token 受到的负向更新被摊薄，策略对冗长的错误表达惩罚不足。合起来，无论回答对错，$`(1/|o_i|)`$ 都在推动"正确→短、错误→长"的方向，而这个方向完全由回答长度决定，与推理质量（是否正确、推理是否有效）无关。这是一种纯粹的结构偏置。
+参考答案：正优势时（$`\hat{A}\gt 0`$，正确回答），$`(1/|o_i|)`$ 使短回答每 token 获得更大的正向更新，策略偏好简洁的正确表达。负优势时（$`\hat{A}\lt 0`$，错误回答），$`(1/|o_i|)`$ 使长回答每 token 受到的负向更新被摊薄，策略对冗长的错误表达惩罚不足。合起来，无论回答对错，$`(1/|o_i|)`$ 都在推动"正确→短、错误→长"的方向，而这个方向完全由回答长度决定，与推理质量（是否正确、推理是否有效）无关。这是一种纯粹的结构偏置。
 
 **题 3**：在二值奖励下，设 $`G=8`$，某 prompt 的组内通过率 $`k/G = 0.125`$（即 8 个回答中恰好 1 个正确）。计算该正确答案的 GRPO 优势 $`\hat{A}_{\text{correct}}`$ 和 Dr.GRPO 优势 $`\tilde{A}_{\text{correct}}`$。两者的比值是多少？这个比值说明了什么？
 
@@ -2663,9 +2665,9 @@ DAPO（Decoupled Clip and Dynamic sAmpling Policy Optimization，解耦裁剪与
 
 | 病症 | 数学根源 | DAPO 技术 | 核心改动 |
 |------|---------|-----------|---------|
-| 熵崩塌（entropy collapse） | 对称 clip 限制低概率好 token 的概率增长上界，策略分布过早收敛至 one-hot | Clip-Higher（解耦裁剪） | $`\varepsilon_{high} > \varepsilon_{low}`$，放宽上界 |
+| 熵崩塌（entropy collapse） | 对称 clip 限制低概率好 token 的概率增长上界，策略分布过早收敛至 one-hot | Clip-Higher（解耦裁剪） | $`\varepsilon_{high} \gt  \varepsilon_{low}`$，放宽上界 |
 | 无效样本浪费算力 | 组内奖励全对/全错时 $`\hat{A}_i \equiv 0`$，梯度为零但采样成本已付 | Dynamic Sampling（动态采样） | 过采样并过滤全同奖励 prompt |
-| 长短回答梯度不公 | 序列内 $`(1/\|o_i\|)`$ 归一化使长回答每 token 梯度被稀释 | Token-Level Loss（token 级损失） | 改为全 batch token 直接平均 |
+| 长短回答梯度不公 | 序列内 $`(1/\lvert o_i\rvert)`$ 归一化使长回答每 token 梯度被稀释 | Token-Level Loss（token 级损失） | 改为全 batch token 直接平均 |
 | 超长截断噪声 | 截断回答被 verifier 误判为错误，产生虚假负信号；或故意超长骗分 | Overlong Reward Shaping（超长奖励塑形） | 软惩罚 + 截断过滤 |
 
 此外，DAPO **明确移除了 KL 约束项**，理由将在 6.6 节详述。
@@ -2706,12 +2708,12 @@ PPO-Clip 和标准 GRPO 均使用对称裁剪阈值 $`\varepsilon_{low} = \varep
 \text{clip}(r_t, 1-\varepsilon, 1+\varepsilon) = \max(1-\varepsilon, \min(1+\varepsilon, r_t)).
 ```
 
-承接 PPO 文档第 6 章的六情形分析，当 $`\hat{A} > 0`$ 且 $`r_t > 1+\varepsilon`$ 时，$`\min`$ 操作选择被裁剪的分支，梯度为零——策略不再继续增大该 token 的概率。这个机制在防止策略更新过大方面功不可没，但它对**低概率好 token** 产生了系统性的压制效应。推理链条如下：
+承接 PPO 文档第 6 章的六情形分析，当 $`\hat{A} \gt  0`$ 且 $`r_t \gt  1+\varepsilon`$ 时，$`\min`$ 操作选择被裁剪的分支，梯度为零——策略不再继续增大该 token 的概率。这个机制在防止策略更新过大方面功不可没，但它对**低概率好 token** 产生了系统性的压制效应。推理链条如下：
 
-1. 考虑一个当前概率很低的 token $`a^*`$，即 $`\pi_\theta(a^*|s) \approx \delta`$，其中 $`\delta \ll 1`$。假设它是好 token（$`\hat{A} > 0`$），我们希望增大概率。
+1. 考虑一个当前概率很低的 token $`a^*`$，即 $`\pi_\theta(a^*|s) \approx \delta`$，其中 $`\delta \ll 1`$。假设它是好 token（$`\hat{A} \gt  0`$），我们希望增大概率。
 2. 重要性比率 $`r_t = \pi_\theta(a^*|s) / \pi_{\theta_{old}}(a^*|s)`$。由于 $`\pi_\theta(a^*|s)`$ 本身很小，即使绝对概率翻倍（从 $`\delta`$ 到 $`2\delta`$），$`r_t`$ 也只是从 1 变为 2——而 $`1+\varepsilon = 1.2`$ 的上界远在 2 之下。
-3. 这意味着：低概率 token 只需极小的相对增幅就会触发 $`r_t > 1+\varepsilon`$ 的截断条件，梯度立即归零。
-4. 相比之下，一个已经高概率的 token（$`\pi_\theta \approx 0.9`$），要从 0.9 涨到触发截断，需要 $`r_t > 1.2`$，即概率需涨到 $`0.9 \times 1.2 = 1.08`$——这不可能发生（概率上界为 1），所以高概率 token 实际上很少被上界截断。
+3. 这意味着：低概率 token 只需极小的相对增幅就会触发 $`r_t \gt  1+\varepsilon`$ 的截断条件，梯度立即归零。
+4. 相比之下，一个已经高概率的 token（$`\pi_\theta \approx 0.9`$），要从 0.9 涨到触发截断，需要 $`r_t \gt  1.2`$，即概率需涨到 $`0.9 \times 1.2 = 1.08`$——这不可能发生（概率上界为 1），所以高概率 token 实际上很少被上界截断。
 
 **结论**：对称 clip 的上界对低概率 token 构成了不成比例的限制。低概率好 token 难以被"捞起来"，高概率 token 则不受影响。长期累积效应是：概率质量持续向已有的高概率 token 集中，低概率区域被系统性忽视，分布越来越尖锐，熵持续下降直至崩塌。
 
@@ -2725,7 +2727,7 @@ DAPO 将上下裁剪阈值解耦（Decoupled Clip），定义非对称裁剪算�
 \text{clip}_{asym}(r_t, 1-\varepsilon_{low}, 1+\varepsilon_{high}) = \max(1-\varepsilon_{low}, \min(1+\varepsilon_{high}, r_t)),
 ```
 
-其中 $`\varepsilon_{high} > \varepsilon_{low}`$。DAPO 的典型取值为 $`\varepsilon_{low} = 0.2`$，$`\varepsilon_{high} = 0.28`$。
+其中 $`\varepsilon_{high} \gt  \varepsilon_{low}`$。DAPO 的典型取值为 $`\varepsilon_{low} = 0.2`$，$`\varepsilon_{high} = 0.28`$。
 
 修改后的单 token 目标为：
 
@@ -2735,8 +2737,8 @@ DAPO 将上下裁剪阈值解耦（Decoupled Clip），定义非对称裁剪算�
 
 用 PPO 文档六情形的语言重新分析：
 
-- **$`\hat{A} > 0`$ 的情形**：梯度归零的触发点从 $`r_t > 1+\varepsilon_{low}`$ 推迟到 $`r_t > 1+\varepsilon_{high}`$。回到上面的例子，低概率 token 从 $`\delta`$ 出发，现在允许 $`r_t`$ 涨到 $`1.28`$ 才被截断，而非 $`1.20`$。这多出的 $`0.08`$ 的"上涨空间"看似不大，但对于 $`\delta`$ 很小的 token，它意味着允许的绝对概率增幅从 $`0.2\delta`$ 增加到 $`0.28\delta`$——相对提升了 40%。在数百上千个训练步中，这个差异足以让原本被压制的低概率好 token 逐步积累概率质量。
-- **$`\hat{A} < 0`$ 的情形**：下界仍为 $`1-\varepsilon_{low} = 0.8`$，控制"减小概率"的幅度不变。策略不会因上界放宽而在惩罚方向也变得激进。
+- **$`\hat{A} \gt  0`$ 的情形**：梯度归零的触发点从 $`r_t \gt  1+\varepsilon_{low}`$ 推迟到 $`r_t \gt  1+\varepsilon_{high}`$。回到上面的例子，低概率 token 从 $`\delta`$ 出发，现在允许 $`r_t`$ 涨到 $`1.28`$ 才被截断，而非 $`1.20`$。这多出的 $`0.08`$ 的"上涨空间"看似不大，但对于 $`\delta`$ 很小的 token，它意味着允许的绝对概率增幅从 $`0.2\delta`$ 增加到 $`0.28\delta`$——相对提升了 40%。在数百上千个训练步中，这个差异足以让原本被压制的低概率好 token 逐步积累概率质量。
+- **$`\hat{A} \lt  0`$ 的情形**：下界仍为 $`1-\varepsilon_{low} = 0.8`$，控制"减小概率"的幅度不变。策略不会因上界放宽而在惩罚方向也变得激进。
 
 <a id="s6-2-4"></a>
 
@@ -2790,10 +2792,10 @@ P(\text{全同}) = p^G + (1-p)^G,
 
 DAPO 的解法是**过采样（over-sample）并过滤**。具体流程：
 
-1. 从 prompt 池中采样 $`N_{candidate} > N_{batch}`$ 个候选 prompt。
+1. 从 prompt 池中采样 $`N_{candidate} \gt  N_{batch}`$ 个候选 prompt。
 2. 对每个候选 prompt 生成 $`G`$ 个回答，计算组内准确率 $`\text{acc}_j = \frac{1}{G}\sum_{i=1}^G r_{j,i}`$。
 3. **丢弃**所有 $`\text{acc}_j = 0`$ 或 $`\text{acc}_j = 1`$ 的 prompt（全错或全对）。
-4. **保留**满足 $`0 < \text{acc}_j < 1`$ 的 prompt，直到凑满目标 batch 大小 $`N_{batch}`$。
+4. **保留**满足 $`0 \lt  \text{acc}_j \lt  1`$ 的 prompt，直到凑满目标 batch 大小 $`N_{batch}`$。
 5. 若有效 prompt 不足，继续采样新的候选并重复上述过程。
 
 过滤条件的数学表达为：
@@ -2883,8 +2885,8 @@ L^{DAPO-token} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^G \sum_{t=1}^{|o_i|} \el
 
 | 聚合方式 | 归一化因子 | 每条回答的权重 | 每 token 权重 |
 |---------|-----------|--------------|-------------|
-| GRPO（sequence-level） | $`G \cdot |o_i|`$（双重平均） | $`1/G`$（等权） | $`1/(G \cdot \|o_i\|)`$ |
-| DAPO（token-level） | $`\sum_i \|o_i\|`$（全局平均） | $`\|o_i\| / \sum_j \|o_j\|`$（按长度加权） | $`1 / \sum_j \|o_j\|`$（均匀） |
+| GRPO（sequence-level） | $`G \cdot \lvert o_i\rvert`$（双重平均） | $`1/G`$（等权） | $`1/(G \cdot \lvert o_i\rvert)`$ |
+| DAPO（token-level） | $`\sum_i \lvert o_i\rvert`$（全局平均） | $`\lvert o_i\rvert / \sum_j \lvert o_j\rvert`$（按长度加权） | $`1 / \sum_j \lvert o_j\rvert`$（均匀） |
 
 在 token-level 聚合下，每个 token 的权重都是 $`1/(\text{总 token 数})`$，与其所属回答的长度无关。长回答因为 token 数量多，在总损失中自然占据更大比重——这是合理的，因为长回答确实包含更多需要学习的决策点。
 
@@ -3005,11 +3007,11 @@ L^{DAPO} = -\mathbb{E}\left[\frac{1}{\sum_{i \in \mathcal{B}_{valid}} |o_i|}\sum
 ```
 
 其中：
-- $`\mathcal{B}_{valid}`$ 是动态采样过滤后的有效 prompt 集合（$`0 < \text{acc} < 1`$）。
+- $`\mathcal{B}_{valid}`$ 是动态采样过滤后的有效 prompt 集合（$`0 \lt  \text{acc} \lt  1`$）。
 - $`m_i`$ 是超长过滤掩码（$`m_i = 0`$ 当 $`|o_i| = L_{max}`$）。
 - $`\text{clip}_{asym}`$ 是非对称裁剪，$`\varepsilon_{low} = 0.2, \varepsilon_{high} = 0.28`$。
 - $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$ 仍使用组内归一化优势。关于是否除以 $`\hat{\sigma}`$：DAPO 论文保留了减均值操作；对于 std 归一化，不同实现版本存在差异——部分实现保留 $`\hat{\sigma}`$ 归一化，部分实现（受 Dr.GRPO 影响）去掉 std 归一化以避免第 2 章所述的难度偏差。读者在使用具体代码时应核对实际配置。
-- $`r_{i,t} = \pi_\theta(o_{i,t}|q, o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}|q, o_{i,<t})`$ 为逐 token 重要性比率。
+- $`r_{i,t} = \pi_\theta(o_{i,t}|q, o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t}|q, o_{i,\lt t})`$ 为逐 token 重要性比率。
 - 奖励 $`r_i = R_{verifier}(o_i) + R_{length}(o_i)`$ 包含了软超长惩罚。
 - **无 KL 项**。
 
@@ -3076,7 +3078,7 @@ def DAPO_training_step(prompt_pool, model, G, N_batch, eps_low, eps_high, L_max,
 | 采样策略 | 直接采样固定 batch | 过采样 + 过滤全同奖励 prompt | 无效样本浪费 |
 | 损失聚合 | 序列内平均再组内平均 | 全 batch token 直接平均 | 长度偏差 |
 | 超长处理 | 无（硬截断） | 软惩罚 + 截断过滤 | 截断噪声与 hacking |
-| KL 约束 | $`\beta > 0`$（通常 0.001~0.04） | $`\beta = 0`$（移除） | 促进长链推理探索 |
+| KL 约束 | $`\beta \gt  0`$（通常 0.001~0.04） | $`\beta = 0`$（移除） | 促进长链推理探索 |
 
 <a id="s6-8"></a>
 
@@ -3113,11 +3115,11 @@ DAPO 的贡献不仅在于算法层面的四项改进，还在于**完整开源�
 
 **题目 1**：解释为什么对称 clip（$`\varepsilon_{low} = \varepsilon_{high}`$）会对低概率 token 产生不成比例的限制，从而加速熵崩塌。请用重要性比率 $`r_t`$ 的行为来说明。
 
-参考答案：对于一个当前概率很低的 token（$`\pi_\theta \approx \delta \ll 1`$），即使其绝对概率翻倍，$`r_t`$ 也只从 1 变为 2。对称 clip 的上界 $`1+\varepsilon`$（如 1.2）远低于 2，因此低概率 token 只需极小的相对增幅就触发 $`r_t > 1+\varepsilon`$ 的截断条件，梯度归零。相比之下，高概率 token 很难触及上界。长期累积效应是低概率好 token 无法被提升，概率质量持续向高概率 token 集中，熵持续下降。
+参考答案：对于一个当前概率很低的 token（$`\pi_\theta \approx \delta \ll 1`$），即使其绝对概率翻倍，$`r_t`$ 也只从 1 变为 2。对称 clip 的上界 $`1+\varepsilon`$（如 1.2）远低于 2，因此低概率 token 只需极小的相对增幅就触发 $`r_t \gt  1+\varepsilon`$ 的截断条件，梯度归零。相比之下，高概率 token 很难触及上界。长期累积效应是低概率好 token 无法被提升，概率质量持续向高概率 token 集中，熵持续下降。
 
 **题目 2**：动态采样如何与第 4 章的全同奖励概率 $`P(\text{全同}) = p^G + (1-p)^G`$ 相关联？它如何实现隐式课程学习？
 
-参考答案：$`P(\text{全同})`$ 在 $`p \approx 0`$ 或 $`p \approx 1`$ 时接近 1，意味着简单题和极难题的大部分采样都是零梯度的。动态采样过滤掉这些 prompt，只保留 $`0 < \text{acc} < 1`$ 的 prompt，即 $`p`$ 处于中间区域的题目。随着训练推进，模型变强，原来的中等题变成简单题（$`p \to 1`$）被自动过滤，新的中等难度题进入 batch。这形成了自适应的课程学习，始终将训练集中在 $`p \approx 0.5`$ 附近——信号最强的区域。
+参考答案：$`P(\text{全同})`$ 在 $`p \approx 0`$ 或 $`p \approx 1`$ 时接近 1，意味着简单题和极难题的大部分采样都是零梯度的。动态采样过滤掉这些 prompt，只保留 $`0 \lt  \text{acc} \lt  1`$ 的 prompt，即 $`p`$ 处于中间区域的题目。随着训练推进，模型变强，原来的中等题变成简单题（$`p \to 1`$）被自动过滤，新的中等难度题进入 batch。这形成了自适应的课程学习，始终将训练集中在 $`p \approx 0.5`$ 附近——信号最强的区域。
 
 **题目 3**：写出 GRPO sequence-level loss 和 DAPO token-level loss 的数学表达式，并说明为什么后者能消除长度偏差。
 
@@ -3294,7 +3296,7 @@ CISPO 与 PPO/GRPO 在梯度层面的本质区别可以通过直接求导看出�
 
 **关键特征**：$`\nabla_\theta \log\pi_\theta`$ 项对**所有 token 都非零**。clip 只影响"这个 token 的权重多大"（通过 $`\text{sg}(\hat{r}^{IS}_{i,t})`$ 控制），而不影响"这个 token 有没有梯度"。即使某个 token 的原始比率 $`r^{IS}_{i,t}`$ 远超 clip 上界，它仍然以被裁剪后的权重 $`\varepsilon^{IS}_{high}`$ 参与梯度更新，而非被完全丢弃。
 
-对比 PPO/GRPO 的梯度：当 $`r_{i,t} > 1+\varepsilon`$ 且 $`\hat{A}_i > 0`$ 时，$`\min(r_{i,t}\hat{A}_i, \text{clip}(r_{i,t})\hat{A}_i) = (1+\varepsilon)\hat{A}_i`$，该项对 $`\theta`$ 的梯度为零（因为 clip 后的值是常数）。**Hard clip 直接杀死梯度，CISPO 的 detached 权重只是缩放梯度**——这是两者的本质区别。
+对比 PPO/GRPO 的梯度：当 $`r_{i,t} \gt  1+\varepsilon`$ 且 $`\hat{A}_i \gt  0`$ 时，$`\min(r_{i,t}\hat{A}_i, \text{clip}(r_{i,t})\hat{A}_i) = (1+\varepsilon)\hat{A}_i`$，该项对 $`\theta`$ 的梯度为零（因为 clip 后的值是常数）。**Hard clip 直接杀死梯度，CISPO 的 detached 权重只是缩放梯度**——这是两者的本质区别。
 
 <a id="s7-3-4"></a>
 
@@ -3681,7 +3683,7 @@ def math_verifier_reward(
         return 0.0
 ```
 
-**与理论的对应与差异**：第 4 章指出奖励尺度不变性（$`R \to aR + b`$ 时 $`\hat{A}`$ 不变，$`a > 0`$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
+**与理论的对应与差异**：第 4 章指出奖励尺度不变性（$`R \to aR + b`$ 时 $`\hat{A}`$ 不变，$`a \gt  0`$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
 
 <a id="s8-2-2"></a>
 
@@ -4052,7 +4054,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 ### 8.4.2 GRPO 特有的诊断逻辑
 
-**clip_fraction 的特殊含义**：承接第 3 章，当 $`K=1`$（单次更新，即生成数据后立即训练一步就丢弃）时，$`\theta = \theta_{old}`$，比率 $`r_{i,t} = 1`$ 恒成立，不应有任何 token 被 clip。若观察到 `clip_fraction > 0`，只有两种可能：(1) old_logprob 与 new_logprob 不匹配（实现 bug，见 8.5 节坑 #2）；(2) 使用了 $`K > 1`$ 的多 epoch 更新。这个诊断逻辑在调试时非常有价值。
+**clip_fraction 的特殊含义**：承接第 3 章，当 $`K=1`$（单次更新，即生成数据后立即训练一步就丢弃）时，$`\theta = \theta_{old}`$，比率 $`r_{i,t} = 1`$ 恒成立，不应有任何 token 被 clip。若观察到 `clip_fraction > 0`，只有两种可能：(1) old_logprob 与 new_logprob 不匹配（实现 bug，见 8.5 节坑 #2）；(2) 使用了 $`K \gt  1`$ 的多 epoch 更新。这个诊断逻辑在调试时非常有价值。
 
 **kl_to_ref 在 β=0 时的重要性**：RLVR 场景中常设 $`\beta = 0`$（去掉 KL 惩罚以获得更强的探索）。此时损失函数中没有 KL 项，但**必须仍然监控 kl_to_ref**。否则策略可能在不知不觉中严重偏离初始模型，导致语言质量崩坏（如输出乱码、重复、格式退化）而无任何预警。
 
@@ -4087,7 +4089,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 | 5 | 训练几乎无进展；advantage 全接近 0 | G 设得太小（如 2），std 估计极不可靠（第 2 章） | 至少 G≥8；推荐 G=16~64 |
 | 6 | NaN/Inf 出现在 loss 或梯度中 | 组内奖励全同时 std=0，除零产生 NaN（第 2 章） | 加 eps 保护（`std + 1e-4`）或用 `scale_rewards=False` |
 | 7 | zero_grad_ratio 持续很高；reward 停滞 | 数据难度失衡，几乎全对或全错，大量零梯度 prompt（第 4 章） | 难度过滤、课程学习、或 DAPO 动态采样（第 6 章） |
-| 8 | completion_length 持续暴涨而 reward 不涨 | 长度偏差或长度 hacking（第 4、5 章） | Dr.GRPO 修正（去 1/\|o_i\|）+ DAPO 超长软惩罚（第 6 章） |
+| 8 | completion_length 持续暴涨而 reward 不涨 | 长度偏差或长度 hacking（第 4、5 章） | Dr.GRPO 修正（去 $`1/\lvert o_i\rvert`$）+ DAPO 超长软惩罚（第 6 章） |
 | 9 | entropy 快速崩塌；多样性丧失 | 对称 clip 压制低概率 token（第 6 章） | clip-higher（ε_high > ε_low）或加熵正则 |
 | 10 | 语言质量悄悄退化（乱码/重复）但 loss 看起来正常 | β=0 且不监控 kl_to_ref，策略偏离初始模型而无察觉 | 即使不加 KL 惩罚也必须监控 kl_to_ref（见 8.4） |
 | 11 | reward 虚高但实际回答质量差 | verifier 可被绕过（多个 boxed、硬编码测试输出），reward hacking（第 4 章） | 加固抽取逻辑（见 8.2.1）+ 对抗性测试 |

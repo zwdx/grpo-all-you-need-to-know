@@ -28,9 +28,9 @@ DAPO（Decoupled Clip and Dynamic sAmpling Policy Optimization，解耦裁剪与
 
 | 病症 | 数学根源 | DAPO 技术 | 核心改动 |
 |------|---------|-----------|---------|
-| 熵崩塌（entropy collapse） | 对称 clip 限制低概率好 token 的概率增长上界，策略分布过早收敛至 one-hot | Clip-Higher（解耦裁剪） | $`\varepsilon_{high} > \varepsilon_{low}`$，放宽上界 |
+| 熵崩塌（entropy collapse） | 对称 clip 限制低概率好 token 的概率增长上界，策略分布过早收敛至 one-hot | Clip-Higher（解耦裁剪） | $`\varepsilon_{high} \gt  \varepsilon_{low}`$，放宽上界 |
 | 无效样本浪费算力 | 组内奖励全对/全错时 $`\hat{A}_i \equiv 0`$，梯度为零但采样成本已付 | Dynamic Sampling（动态采样） | 过采样并过滤全同奖励 prompt |
-| 长短回答梯度不公 | 序列内 $`(1/\|o_i\|)`$ 归一化使长回答每 token 梯度被稀释 | Token-Level Loss（token 级损失） | 改为全 batch token 直接平均 |
+| 长短回答梯度不公 | 序列内 $`(1/\lvert o_i\rvert)`$ 归一化使长回答每 token 梯度被稀释 | Token-Level Loss（token 级损失） | 改为全 batch token 直接平均 |
 | 超长截断噪声 | 截断回答被 verifier 误判为错误，产生虚假负信号；或故意超长骗分 | Overlong Reward Shaping（超长奖励塑形） | 软惩罚 + 截断过滤 |
 
 此外，DAPO **明确移除了 KL 约束项**，理由将在 6.6 节详述。
@@ -71,12 +71,12 @@ PPO-Clip 和标准 GRPO 均使用对称裁剪阈值 $`\varepsilon_{low} = \varep
 \text{clip}(r_t, 1-\varepsilon, 1+\varepsilon) = \max(1-\varepsilon, \min(1+\varepsilon, r_t)).
 ```
 
-承接 PPO 文档第 6 章的六情形分析，当 $`\hat{A} > 0`$ 且 $`r_t > 1+\varepsilon`$ 时，$`\min`$ 操作选择被裁剪的分支，梯度为零——策略不再继续增大该 token 的概率。这个机制在防止策略更新过大方面功不可没，但它对**低概率好 token** 产生了系统性的压制效应。推理链条如下：
+承接 PPO 文档第 6 章的六情形分析，当 $`\hat{A} \gt  0`$ 且 $`r_t \gt  1+\varepsilon`$ 时，$`\min`$ 操作选择被裁剪的分支，梯度为零——策略不再继续增大该 token 的概率。这个机制在防止策略更新过大方面功不可没，但它对**低概率好 token** 产生了系统性的压制效应。推理链条如下：
 
-1. 考虑一个当前概率很低的 token $`a^*`$，即 $`\pi_\theta(a^*|s) \approx \delta`$，其中 $`\delta \ll 1`$。假设它是好 token（$`\hat{A} > 0`$），我们希望增大概率。
+1. 考虑一个当前概率很低的 token $`a^*`$，即 $`\pi_\theta(a^*|s) \approx \delta`$，其中 $`\delta \ll 1`$。假设它是好 token（$`\hat{A} \gt  0`$），我们希望增大概率。
 2. 重要性比率 $`r_t = \pi_\theta(a^*|s) / \pi_{\theta_{old}}(a^*|s)`$。由于 $`\pi_\theta(a^*|s)`$ 本身很小，即使绝对概率翻倍（从 $`\delta`$ 到 $`2\delta`$），$`r_t`$ 也只是从 1 变为 2——而 $`1+\varepsilon = 1.2`$ 的上界远在 2 之下。
-3. 这意味着：低概率 token 只需极小的相对增幅就会触发 $`r_t > 1+\varepsilon`$ 的截断条件，梯度立即归零。
-4. 相比之下，一个已经高概率的 token（$`\pi_\theta \approx 0.9`$），要从 0.9 涨到触发截断，需要 $`r_t > 1.2`$，即概率需涨到 $`0.9 \times 1.2 = 1.08`$——这不可能发生（概率上界为 1），所以高概率 token 实际上很少被上界截断。
+3. 这意味着：低概率 token 只需极小的相对增幅就会触发 $`r_t \gt  1+\varepsilon`$ 的截断条件，梯度立即归零。
+4. 相比之下，一个已经高概率的 token（$`\pi_\theta \approx 0.9`$），要从 0.9 涨到触发截断，需要 $`r_t \gt  1.2`$，即概率需涨到 $`0.9 \times 1.2 = 1.08`$——这不可能发生（概率上界为 1），所以高概率 token 实际上很少被上界截断。
 
 **结论**：对称 clip 的上界对低概率 token 构成了不成比例的限制。低概率好 token 难以被"捞起来"，高概率 token 则不受影响。长期累积效应是：概率质量持续向已有的高概率 token 集中，低概率区域被系统性忽视，分布越来越尖锐，熵持续下降直至崩塌。
 
@@ -90,7 +90,7 @@ DAPO 将上下裁剪阈值解耦（Decoupled Clip），定义非对称裁剪算�
 \text{clip}_{asym}(r_t, 1-\varepsilon_{low}, 1+\varepsilon_{high}) = \max(1-\varepsilon_{low}, \min(1+\varepsilon_{high}, r_t)),
 ```
 
-其中 $`\varepsilon_{high} > \varepsilon_{low}`$。DAPO 的典型取值为 $`\varepsilon_{low} = 0.2`$，$`\varepsilon_{high} = 0.28`$。
+其中 $`\varepsilon_{high} \gt  \varepsilon_{low}`$。DAPO 的典型取值为 $`\varepsilon_{low} = 0.2`$，$`\varepsilon_{high} = 0.28`$。
 
 修改后的单 token 目标为：
 
@@ -100,8 +100,8 @@ DAPO 将上下裁剪阈值解耦（Decoupled Clip），定义非对称裁剪算�
 
 用 PPO 文档六情形的语言重新分析：
 
-- **$`\hat{A} > 0`$ 的情形**：梯度归零的触发点从 $`r_t > 1+\varepsilon_{low}`$ 推迟到 $`r_t > 1+\varepsilon_{high}`$。回到上面的例子，低概率 token 从 $`\delta`$ 出发，现在允许 $`r_t`$ 涨到 $`1.28`$ 才被截断，而非 $`1.20`$。这多出的 $`0.08`$ 的"上涨空间"看似不大，但对于 $`\delta`$ 很小的 token，它意味着允许的绝对概率增幅从 $`0.2\delta`$ 增加到 $`0.28\delta`$——相对提升了 40%。在数百上千个训练步中，这个差异足以让原本被压制的低概率好 token 逐步积累概率质量。
-- **$`\hat{A} < 0`$ 的情形**：下界仍为 $`1-\varepsilon_{low} = 0.8`$，控制"减小概率"的幅度不变。策略不会因上界放宽而在惩罚方向也变得激进。
+- **$`\hat{A} \gt  0`$ 的情形**：梯度归零的触发点从 $`r_t \gt  1+\varepsilon_{low}`$ 推迟到 $`r_t \gt  1+\varepsilon_{high}`$。回到上面的例子，低概率 token 从 $`\delta`$ 出发，现在允许 $`r_t`$ 涨到 $`1.28`$ 才被截断，而非 $`1.20`$。这多出的 $`0.08`$ 的"上涨空间"看似不大，但对于 $`\delta`$ 很小的 token，它意味着允许的绝对概率增幅从 $`0.2\delta`$ 增加到 $`0.28\delta`$——相对提升了 40%。在数百上千个训练步中，这个差异足以让原本被压制的低概率好 token 逐步积累概率质量。
+- **$`\hat{A} \lt  0`$ 的情形**：下界仍为 $`1-\varepsilon_{low} = 0.8`$，控制"减小概率"的幅度不变。策略不会因上界放宽而在惩罚方向也变得激进。
 
 <a id="s6-2-4"></a>
 
@@ -155,10 +155,10 @@ P(\text{全同}) = p^G + (1-p)^G,
 
 DAPO 的解法是**过采样（over-sample）并过滤**。具体流程：
 
-1. 从 prompt 池中采样 $`N_{candidate} > N_{batch}`$ 个候选 prompt。
+1. 从 prompt 池中采样 $`N_{candidate} \gt  N_{batch}`$ 个候选 prompt。
 2. 对每个候选 prompt 生成 $`G`$ 个回答，计算组内准确率 $`\text{acc}_j = \frac{1}{G}\sum_{i=1}^G r_{j,i}`$。
 3. **丢弃**所有 $`\text{acc}_j = 0`$ 或 $`\text{acc}_j = 1`$ 的 prompt（全错或全对）。
-4. **保留**满足 $`0 < \text{acc}_j < 1`$ 的 prompt，直到凑满目标 batch 大小 $`N_{batch}`$。
+4. **保留**满足 $`0 \lt  \text{acc}_j \lt  1`$ 的 prompt，直到凑满目标 batch 大小 $`N_{batch}`$。
 5. 若有效 prompt 不足，继续采样新的候选并重复上述过程。
 
 过滤条件的数学表达为：
@@ -248,8 +248,8 @@ L^{DAPO-token} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^G \sum_{t=1}^{|o_i|} \el
 
 | 聚合方式 | 归一化因子 | 每条回答的权重 | 每 token 权重 |
 |---------|-----------|--------------|-------------|
-| GRPO（sequence-level） | $`G \cdot |o_i|`$（双重平均） | $`1/G`$（等权） | $`1/(G \cdot \|o_i\|)`$ |
-| DAPO（token-level） | $`\sum_i \|o_i\|`$（全局平均） | $`\|o_i\| / \sum_j \|o_j\|`$（按长度加权） | $`1 / \sum_j \|o_j\|`$（均匀） |
+| GRPO（sequence-level） | $`G \cdot \lvert o_i\rvert`$（双重平均） | $`1/G`$（等权） | $`1/(G \cdot \lvert o_i\rvert)`$ |
+| DAPO（token-level） | $`\sum_i \lvert o_i\rvert`$（全局平均） | $`\lvert o_i\rvert / \sum_j \lvert o_j\rvert`$（按长度加权） | $`1 / \sum_j \lvert o_j\rvert`$（均匀） |
 
 在 token-level 聚合下，每个 token 的权重都是 $`1/(\text{总 token 数})`$，与其所属回答的长度无关。长回答因为 token 数量多，在总损失中自然占据更大比重——这是合理的，因为长回答确实包含更多需要学习的决策点。
 
@@ -370,11 +370,11 @@ L^{DAPO} = -\mathbb{E}\left[\frac{1}{\sum_{i \in \mathcal{B}_{valid}} |o_i|}\sum
 ```
 
 其中：
-- $`\mathcal{B}_{valid}`$ 是动态采样过滤后的有效 prompt 集合（$`0 < \text{acc} < 1`$）。
+- $`\mathcal{B}_{valid}`$ 是动态采样过滤后的有效 prompt 集合（$`0 \lt  \text{acc} \lt  1`$）。
 - $`m_i`$ 是超长过滤掩码（$`m_i = 0`$ 当 $`|o_i| = L_{max}`$）。
 - $`\text{clip}_{asym}`$ 是非对称裁剪，$`\varepsilon_{low} = 0.2, \varepsilon_{high} = 0.28`$。
 - $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$ 仍使用组内归一化优势。关于是否除以 $`\hat{\sigma}`$：DAPO 论文保留了减均值操作；对于 std 归一化，不同实现版本存在差异——部分实现保留 $`\hat{\sigma}`$ 归一化，部分实现（受 Dr.GRPO 影响）去掉 std 归一化以避免第 2 章所述的难度偏差。读者在使用具体代码时应核对实际配置。
-- $`r_{i,t} = \pi_\theta(o_{i,t}|q, o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}|q, o_{i,<t})`$ 为逐 token 重要性比率。
+- $`r_{i,t} = \pi_\theta(o_{i,t}|q, o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t}|q, o_{i,\lt t})`$ 为逐 token 重要性比率。
 - 奖励 $`r_i = R_{verifier}(o_i) + R_{length}(o_i)`$ 包含了软超长惩罚。
 - **无 KL 项**。
 
@@ -441,7 +441,7 @@ def DAPO_training_step(prompt_pool, model, G, N_batch, eps_low, eps_high, L_max,
 | 采样策略 | 直接采样固定 batch | 过采样 + 过滤全同奖励 prompt | 无效样本浪费 |
 | 损失聚合 | 序列内平均再组内平均 | 全 batch token 直接平均 | 长度偏差 |
 | 超长处理 | 无（硬截断） | 软惩罚 + 截断过滤 | 截断噪声与 hacking |
-| KL 约束 | $`\beta > 0`$（通常 0.001~0.04） | $`\beta = 0`$（移除） | 促进长链推理探索 |
+| KL 约束 | $`\beta \gt  0`$（通常 0.001~0.04） | $`\beta = 0`$（移除） | 促进长链推理探索 |
 
 <a id="s6-8"></a>
 
@@ -481,7 +481,7 @@ DAPO 的贡献不仅在于算法层面的四项改进，还在于**完整开源�
 <details>
 <summary>查看参考答案</summary>
 
-参考答案：对于一个当前概率很低的 token（$`\pi_\theta \approx \delta \ll 1`$），即使其绝对概率翻倍，$`r_t`$ 也只从 1 变为 2。对称 clip 的上界 $`1+\varepsilon`$（如 1.2）远低于 2，因此低概率 token 只需极小的相对增幅就触发 $`r_t > 1+\varepsilon`$ 的截断条件，梯度归零。相比之下，高概率 token 很难触及上界。长期累积效应是低概率好 token 无法被提升，概率质量持续向高概率 token 集中，熵持续下降。
+参考答案：对于一个当前概率很低的 token（$`\pi_\theta \approx \delta \ll 1`$），即使其绝对概率翻倍，$`r_t`$ 也只从 1 变为 2。对称 clip 的上界 $`1+\varepsilon`$（如 1.2）远低于 2，因此低概率 token 只需极小的相对增幅就触发 $`r_t \gt  1+\varepsilon`$ 的截断条件，梯度归零。相比之下，高概率 token 很难触及上界。长期累积效应是低概率好 token 无法被提升，概率质量持续向高概率 token 集中，熵持续下降。
 
 </details>
 
@@ -490,7 +490,7 @@ DAPO 的贡献不仅在于算法层面的四项改进，还在于**完整开源�
 <details>
 <summary>查看参考答案</summary>
 
-参考答案：$`P(\text{全同})`$ 在 $`p \approx 0`$ 或 $`p \approx 1`$ 时接近 1，意味着简单题和极难题的大部分采样都是零梯度的。动态采样过滤掉这些 prompt，只保留 $`0 < \text{acc} < 1`$ 的 prompt，即 $`p`$ 处于中间区域的题目。随着训练推进，模型变强，原来的中等题变成简单题（$`p \to 1`$）被自动过滤，新的中等难度题进入 batch。这形成了自适应的课程学习，始终将训练集中在 $`p \approx 0.5`$ 附近——信号最强的区域。
+参考答案：$`P(\text{全同})`$ 在 $`p \approx 0`$ 或 $`p \approx 1`$ 时接近 1，意味着简单题和极难题的大部分采样都是零梯度的。动态采样过滤掉这些 prompt，只保留 $`0 \lt  \text{acc} \lt  1`$ 的 prompt，即 $`p`$ 处于中间区域的题目。随着训练推进，模型变强，原来的中等题变成简单题（$`p \to 1`$）被自动过滤，新的中等难度题进入 batch。这形成了自适应的课程学习，始终将训练集中在 $`p \approx 0.5`$ 附近——信号最强的区域。
 
 </details>
 
