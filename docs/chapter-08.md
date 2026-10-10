@@ -8,13 +8,13 @@
 
 **本章目录**
 
-- [8.1 框架选型与上手路径](#s8-1)
-- [8.2 从零实现 GRPO 的核心逻辑](#s8-2)
-- [8.3 显存、并行与 Rollout 加速](#s8-3)
-- [8.4 训练诊断指标](#s8-4)
-- [8.5 常见坑清单](#s8-5)
-- [8.6 学习资源与进阶路径](#s8-6)
-- [8.7 本章小结与全文档收尾](#s8-7)
+- [8.1 框架选型与上手路径](#user-content-s8-1)
+- [8.2 从零实现 GRPO 的核心逻辑](#user-content-s8-2)
+- [8.3 显存、并行与 Rollout 加速](#user-content-s8-3)
+- [8.4 训练诊断指标](#user-content-s8-4)
+- [8.5 常见坑清单](#user-content-s8-5)
+- [8.6 学习资源与进阶路径](#user-content-s8-6)
+- [8.7 本章小结与全文档收尾](#user-content-s8-7)
 
 本章是《GRPO 系统学习文档》的收尾章，目标是将前 7 章建立的理论体系落到可运行的代码与工程实践上。读者应已读完本文档第 1–7 章及 PPO 系统学习文档（含其第 7 章工程实现），具备 PyTorch 基础与 LLM RL 的数学直觉。本章不再重复推导，所有理论结论均通过引用定位；重点在于**每段代码与前文公式的精确对应**、工程决策背后的机理、以及一套可操作的诊断与排错方法论。
 
@@ -503,9 +503,9 @@ def build_completion_mask(
 
 **KV Cache 估算式**：
 
-$$
+```math
 \text{KV Cache} \approx 2 \times L \times H_{kv} \times d_{head} \times S \times B \times \text{bytes\_per\_elem}
-$$
+```
 
 其中 $`L`$ 为层数，$`H_{kv}`$ 为 KV 头数（GQA 时小于注意力头数），$`d_{head}`$ 为头维度，$`S`$ 为序列长度，$`B`$ 为 batch size，`bytes_per_elem` 为精度字节数（bf16=2, fp16=2, fp32=4）。
 

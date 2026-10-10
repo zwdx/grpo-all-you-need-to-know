@@ -8,15 +8,15 @@
 
 **本章目录**
 
-- [6.1 DAPO 的定位与整体思路](#s6-1)
-- [6.2 Clip-Higher：解耦上下裁剪阈值](#s6-2)
-- [6.3 Dynamic Sampling：动态采样过滤无效 prompt](#s6-3)
-- [6.4 Token-Level Policy Gradient Loss](#s6-4)
-- [6.5 Overlong Reward Shaping：超长奖励塑形](#s6-5)
-- [6.6 DAPO 移除 KL 项的决策](#s6-6)
-- [6.7 DAPO 完整目标函数与算法](#s6-7)
-- [6.8 DAPO 的工程系统与可复现性](#s6-8)
-- [6.9 本章小结与自测](#s6-9)
+- [6.1 DAPO 的定位与整体思路](#user-content-s6-1)
+- [6.2 Clip-Higher：解耦上下裁剪阈值](#user-content-s6-2)
+- [6.3 Dynamic Sampling：动态采样过滤无效 prompt](#user-content-s6-3)
+- [6.4 Token-Level Policy Gradient Loss](#user-content-s6-4)
+- [6.5 Overlong Reward Shaping：超长奖励塑形](#user-content-s6-5)
+- [6.6 DAPO 移除 KL 项的决策](#user-content-s6-6)
+- [6.7 DAPO 完整目标函数与算法](#user-content-s6-7)
+- [6.8 DAPO 的工程系统与可复现性](#user-content-s6-8)
+- [6.9 本章小结与自测](#user-content-s6-9)
 
 <a id="s6-1"></a>
 
@@ -49,9 +49,9 @@ DAPO（Decoupled Clip and Dynamic sAmpling Policy Optimization，解耦裁剪与
 
 承接 PPO 文档第 6 章，策略熵 $`H(\pi_\theta)`$ 是衡量探索性的核心指标。对于状态 $`s`$ 下的离散动作空间 $`\mathcal{V}`$：
 
-$$
+```math
 H(\pi_\theta(\cdot|s)) = -\sum_{a \in \mathcal{V}} \pi_\theta(a|s) \log \pi_\theta(a|s).
-$$
+```
 
 当 $`\pi_\theta(\cdot|s)`$ 趋近 one-hot 分布（即某个动作的概率趋近 1，其余趋近 0）时，$`H \to 0`$。**熵崩塌（entropy collapse）** 指的就是训练过程中策略熵过快下降到极低水平的现象。其危害在于：
 
@@ -67,9 +67,9 @@ $$
 
 PPO-Clip 和标准 GRPO 均使用对称裁剪阈值 $`\varepsilon_{low} = \varepsilon_{high} = \varepsilon`$（常用 $`\varepsilon = 0.2`$），即：
 
-$$
+```math
 \text{clip}(r_t, 1-\varepsilon, 1+\varepsilon) = \max(1-\varepsilon, \min(1+\varepsilon, r_t)).
-$$
+```
 
 承接 PPO 文档第 6 章的六情形分析，当 $`\hat{A} > 0`$ 且 $`r_t > 1+\varepsilon`$ 时，$`\min`$ 操作选择被裁剪的分支，梯度为零——策略不再继续增大该 token 的概率。这个机制在防止策略更新过大方面功不可没，但它对**低概率好 token** 产生了系统性的压制效应。推理链条如下：
 
@@ -86,17 +86,17 @@ $$
 
 DAPO 将上下裁剪阈值解耦（Decoupled Clip），定义非对称裁剪算子：
 
-$$
+```math
 \text{clip}_{asym}(r_t, 1-\varepsilon_{low}, 1+\varepsilon_{high}) = \max(1-\varepsilon_{low}, \min(1+\varepsilon_{high}, r_t)),
-$$
+```
 
 其中 $`\varepsilon_{high} > \varepsilon_{low}`$。DAPO 的典型取值为 $`\varepsilon_{low} = 0.2`$，$`\varepsilon_{high} = 0.28`$。
 
 修改后的单 token 目标为：
 
-$$
+```math
 \ell_{i,t}^{clip-higher} = \min\!\left(r_{i,t}\,\hat{A}_i,\; \text{clip}_{asym}(r_{i,t}, 1-\varepsilon_{low}, 1+\varepsilon_{high})\,\hat{A}_i\right).
-$$
+```
 
 用 PPO 文档六情形的语言重新分析：
 
@@ -143,9 +143,9 @@ $$
 
 第 4 章给出了二值奖励下全同奖励概率的精确表达式：
 
-$$
+```math
 P(\text{全同}) = p^G + (1-p)^G,
-$$
+```
 
 其中 $`p`$ 是模型在该 prompt 上的正确率。当 $`p \to 0`$ 或 $`p \to 1`$ 时，$`P(\text{全同}) \to 1`$。在训练初期（$`p`$ 普遍较低）和训练后期（简单题 $`p \to 1`$），大量 prompt 的全同概率很高，意味着相当比例的算力被浪费在零梯度样本上。
 
@@ -163,9 +163,9 @@ DAPO 的解法是**过采样（over-sample）并过滤**。具体流程：
 
 过滤条件的数学表达为：
 
-$$
+```math
 \mathcal{B}_{valid} = \left\{ j : 0 < \frac{1}{G}\sum_{i=1}^G r_{j,i} < 1 \right\}, \quad |\mathcal{B}_{valid}| = N_{batch}.
-$$
+```
 
 <a id="s6-3-3"></a>
 
@@ -226,9 +226,9 @@ def dynamic_sampling(prompt_pool, model, G, N_batch):
 
 承接第 5 章的结论，GRPO 原式对每个回答先做序列内平均 $`(1/|o_i|)\sum_t`$，再对组内做平均 $`(1/G)\sum_i`$：
 
-$$
+```math
 L^{GRPO} = \frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \ell_{i,t},
-$$
+```
 
 其中 $`\ell_{i,t}`$ 是 token $`(i,t)`$ 的 clip 损失（含 KL 项或不包含）。在这个双层平均结构下，每条回答无论长短，对总损失的贡献权重都是 $`1/G`$。但长回答的损失被分摊到了更多 token 上，每个 token 获得的梯度幅度与 $`1/|o_i|`$ 成正比。
 
@@ -240,9 +240,9 @@ $$
 
 DAPO 将损失聚合方式改为对整个 batch 的所有 token 直接平均：
 
-$$
+```math
 L^{DAPO-token} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^G \sum_{t=1}^{|o_i|} \ell_{i,t}.
-$$
+```
 
 两种形式的本质区别在于归一化因子：
 
@@ -290,27 +290,27 @@ DAPO 的超长奖励塑形包含两个互补的组件：
 
 **① Overlong Filtering（超长过滤）**：对被截断的回答（$`|o_i| = L_{max}`$），其损失不参与梯度计算。形式上，引入掩码 $`m_i`$：
 
-$$
+```math
 m_i = \begin{cases} 0 & \text{if } |o_i| = L_{max} \quad (\text{被截断}) \\ 1 & \text{otherwise} \end{cases}
-$$
+```
 
 在 token-level loss 中，只有 $`m_i = 1`$ 的回答参与聚合。这直接消除了"因截断而误判"的噪声源。注意这与动态采样不同：动态采样过滤的是全对/全错的 prompt；超长过滤针对的是单个被截断的回答，即使同一 prompt 的其他回答未被截断且有效。
 
 **② Soft Overlong Punishment（软超长惩罚）**：在硬上限之前设置一个缓冲区 $`[L_{max} - L_{cache}, L_{max}]`$，在此区间内施加线性递增的长度惩罚：
 
-$$
+```math
 R_{length}(o) = \begin{cases} 
 0 & |o| \le L_{max} - L_{cache} \\
 \displaystyle\frac{(L_{max} - L_{cache}) - |o|}{L_{cache}} & L_{max} - L_{cache} < |o| \le L_{max} \\
 -1 & |o| > L_{max}
 \end{cases}
-$$
+```
 
 其中 $`L_{cache}`$ 是缓冲区宽度（DAPO 论文中的超参）。最终奖励为：
 
-$$
+```math
 R(o) = R_{verifier}(o) + R_{length}(o).
-$$
+```
 
 <a id="s6-5-3"></a>
 
@@ -365,9 +365,9 @@ DAPO 论文的实验也证实了在数学推理任务上去掉 KL 不会导致�
 
 综合四项改进与 KL 移除，DAPO 的完整目标函数为：
 
-$$
+```math
 L^{DAPO} = -\mathbb{E}\left[\frac{1}{\sum_{i \in \mathcal{B}_{valid}} |o_i|}\sum_{i \in \mathcal{B}_{valid}} m_i \sum_{t=1}^{|o_i|} \min\!\left(r_{i,t}\,\hat{A}_i,\; \text{clip}_{asym}(r_{i,t}, 1-\varepsilon_{low}, 1+\varepsilon_{high})\,\hat{A}_i\right)\right]
-$$
+```
 
 其中：
 - $`\mathcal{B}_{valid}`$ 是动态采样过滤后的有效 prompt 集合（$`0 < \text{acc} < 1`$）。

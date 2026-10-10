@@ -8,15 +8,15 @@
 
 **本章目录**
 
-- [4.1 为什么奖励设计是 GRPO 的第一性问题](#s4-1)
-- [4.2 两类奖励源的严格区分](#s4-2)
-- [4.3 RLVR 范式](#s4-3)
-- [4.4 Outcome Reward 与 Process Reward 的数学区别](#s4-4)
-- [4.5 Reward Hacking 的机理与表现](#s4-5)
-- [4.6 二值奖励下 GRPO 的特殊动力学](#s4-6)
-- [4.7 奖励的尺度、稀疏性与组内归一化的相互作用](#s4-7)
-- [4.8 奖励与 GRPO 假设的一致性检查清单](#s4-8)
-- [4.9 本章小结与自测](#s4-9)
+- [4.1 为什么奖励设计是 GRPO 的第一性问题](#user-content-s4-1)
+- [4.2 两类奖励源的严格区分](#user-content-s4-2)
+- [4.3 RLVR 范式](#user-content-s4-3)
+- [4.4 Outcome Reward 与 Process Reward 的数学区别](#user-content-s4-4)
+- [4.5 Reward Hacking 的机理与表现](#user-content-s4-5)
+- [4.6 二值奖励下 GRPO 的特殊动力学](#user-content-s4-6)
+- [4.7 奖励的尺度、稀疏性与组内归一化的相互作用](#user-content-s4-7)
+- [4.8 奖励与 GRPO 假设的一致性检查清单](#user-content-s4-8)
+- [4.9 本章小结与自测](#user-content-s4-9)
 
 <a id="s4-1"></a>
 
@@ -45,15 +45,15 @@ GRPO 去掉了 critic（见第 1 章）。取而代之的是对同一 prompt $`q
 
 奖励模型是一个参数化的神经网络 $`R_\phi(q, o)`$，其训练数据来自人类偏好标注。给定同一个 prompt $`q`$ 和两个回答 $`o_w`$（preferred）、$`o_l`$（dispreferred），Bradley-Terry 偏好模型假设：
 
-$$
+```math
 P(o_w \succ o_l \mid q) = \sigma\big(R_\phi(q, o_w) - R_\phi(q, o_l)\big),
-$$
+```
 
 其中 $`\sigma(x) = 1/(1+e^{-x})`$ 是 logistic 函数。RM 的训练损失为负对数似然：
 
-$$
+```math
 \mathcal{L}_{\text{RM}}(\phi) = -\mathbb{E}_{(q, o_w, o_l) \sim \mathcal{D}} \left[ \log \sigma\big(R_\phi(q, o_w) - R_\phi(q, o_l)\big) \right].
-$$
+```
 
 RM 的关键性质：
 - **输出连续标量**，可对任意 $`(q, o)`$ 打分。
@@ -67,9 +67,9 @@ RM 的关键性质：
 
 规则奖励由确定性程序判定，不依赖任何学习的模型。其一般形式为：
 
-$$
+```math
 R(q, o) = f\big(\text{extract}(o),\; y^*\big),
-$$
+```
 
 其中：
 - $`\text{extract}(\cdot)`$ 是从模型回答中抽取答案的解析函数，例如从 `\boxed{}` 中提取内容、从代码块中提取函数返回值。
@@ -152,15 +152,15 @@ DeepSeek-R1 技术报告（arXiv:2501.12948）是 RLVR 范式的里程碑。其�
 
 Outcome reward 只在回答结束时给出一个分数：
 
-$$
+```math
 r_t = \begin{cases} 0 & t < |o|, \\ R(q, o) & t = |o|. \end{cases}
-$$
+```
 
 承接第 1 章的分析，在 outcome reward 下，reward-to-go 对所有时间步 $`t`$ 相同（因为折扣因子 $`\gamma=1`$ 且中间奖励为零），故 GRPO 的优势不随时间变化：
 
-$$
+```math
 \hat{A}_{i,t} = \hat{A}_i = \frac{r_i - \bar{r}}{\hat{\sigma}}, \quad \forall\, t.
-$$
+```
 
 **优点**：
 - Verifier 实现简单，只需判定最终答案。
@@ -173,15 +173,15 @@ $$
 
 考虑策略梯度的形式（忽略 clip 和 KL，聚焦信号结构）：
 
-$$
+```math
 \nabla_\theta J \propto \hat{A}_i \sum_{t=1}^{L} \nabla_\theta \log \pi_\theta(o_t \mid q, o_{<t}).
-$$
+```
 
 这个求和中，只有 $`k`$ 项对应真正的"有用方向"（调整关键决策的概率），其余 $`L-k`$ 项是噪声（它们在期望意义下与任务无关，但方差非零）。作为一个启发式的量级估计（heuristic scaling argument，非严格定理），有效信号与总噪声的信噪比约为：
 
-$$
+```math
 \text{SNR} \sim \frac{k}{L}.
-$$
+```
 
 当 CoT 很长时（$`L \gg k`$），信噪比极低，梯度估计的方差很大，训练效率急剧下降。这解释了为什么长 CoT 训练特别困难：不是因为模型"学不会"，而是因为 outcome reward 下的信用分配粒度太粗，有效信号被大量无关 token 稀释了。
 
@@ -191,9 +191,9 @@ $$
 
 Process reward 对推理的每一步或每个片段给分。形式化为：
 
-$$
+```math
 R(q, o) = \sum_{j=1}^{M} w_j \cdot r_j,
-$$
+```
 
 其中 $`j`$ 索引推理步骤（step），$`r_j`$ 是第 $`j`$ 步的得分，$`w_j`$ 是权重（常取 1）。实现方式有两种：
 - **Process Reward Model (PRM)**：训练一个专门的模型对每步打分。
@@ -222,9 +222,9 @@ $$
 
 设真实目标是最大化效用 $`U(o)`$，但我们优化的代理目标是奖励 $`R(q, o)`$。定义两者之间的 gap：
 
-$$
+```math
 \Delta(\theta) = \mathbb{E}_{o \sim \pi_\theta(\cdot|q)}[R(q, o)] - \mathbb{E}_{o \sim \pi_\theta(\cdot|q)}[U(o)].
-$$
+```
 
 Reward hacking 指的是：随着优化推进，$`\mathbb{E}[R]`$ 持续上升，但 $`\mathbb{E}[U]`$ 停滞甚至下降，即 $`\Delta(\theta)`$ 被优化压力主动放大。这是 Goodhart's Law 的数学表述：一旦一个度量成为优化目标，它就不再是好度量。
 
@@ -275,17 +275,17 @@ RLVR 中最常见的奖励是二值的：$`r \in \{0, 1\}`$。设某个 prompt $
 
 当 $`G`$ 足够大时，组内均值和标准差的期望为：
 
-$$
+```math
 \mathbb{E}[\bar{r}] = p, \quad \mathbb{E}[\hat{\sigma}] \approx \sqrt{p(1-p)}.
-$$
+```
 
 这是因为 $`G`$ 次独立采样的奖励服从二项分布 $`\text{Bin}(G, p)`$，其标准差为 $`\sqrt{Gp(1-p)}`$，除以 $`G`$ 后得到样本均值的标准差；而样本标准差 $`\hat{\sigma}`$ 的期望在 $`G`$ 较大时趋近于总体标准差 $`\sqrt{p(1-p)}`$。
 
 于是优势的典型量级为：
 
-$$
+```math
 \hat{A}_i \approx \frac{r_i - p}{\sqrt{p(1-p)}}.
-$$
+```
 
 <a id="s4-6-2"></a>
 
@@ -331,13 +331,13 @@ $$
 
 GRPO 的优势定义为 $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$。考虑对奖励做仿射变换 $`r'_i = a r_i + b`$（$`a > 0`$），则：
 
-$$
+```math
 \bar{r}' = a\bar{r} + b, \quad \hat{\sigma}' = a\hat{\sigma},
-$$
+```
 
-$$
+```math
 \hat{A}'_i = \frac{r'_i - \bar{r}'}{\hat{\sigma}'} = \frac{a r_i + b - (a\bar{r} + b)}{a\hat{\sigma}} = \frac{a(r_i - \bar{r})}{a\hat{\sigma}} = \hat{A}_i.
-$$
+```
 
 **结论：GRPO 的优势对奖励的仿射变换不变。** 这意味着奖励的绝对尺度和偏移量不影响梯度方向（在不考虑 KL 项的前提下）。
 
@@ -349,17 +349,17 @@ $$
 
 一旦引入 KL 惩罚项 $`\beta \cdot D_{\text{KL}}[\pi_\theta \| \pi_{\text{ref}}]`$，情况发生变化。KL 散度有固定的绝对尺度（单位为 nat 或 bit），不受奖励变换的影响。当奖励从 $`r`$ 变为 $`ar+b`$ 时，目标函数变为：
 
-$$
+```math
 J'(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(r'_{i,t}(\theta)\,\hat{A}'_i - \beta \cdot D_{\text{KL}}\right)\right] = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(r_{i,t}(\theta)\,\hat{A}_i - \frac{\beta}{a} \cdot D_{\text{KL}}\right)\right],
-$$
+```
 
 其中我们利用了 $`\hat{A}'_i = \hat{A}_i`$ 以及 $`r'_{i,t}(\theta) = a \cdot r_{i,t}(\theta)`$（比率项也乘以 $`a`$，但与 $`\hat{A}'_i`$ 相乘后 $`a`$ 被抵消……等等，这里需要更仔细）。
 
 实际上，回顾第 3 章的目标函数：
 
-$$
+```math
 J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\big(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}(r_{i,t}(\theta), 1-\epsilon, 1+\epsilon)\,\hat{A}_i\big) - \beta \cdot D_{\text{KL}}\right)\right].
-$$
+```
 
 由于 $`\hat{A}_i`$ 尺度不变，clip 内的两项都正比于 $`\hat{A}_i`$，所以整个奖励项确实尺度不变。但 KL 项不变，因此**奖励尺度变化等价于改变 $`\beta`$ 的有效值**。奖励放大 $`a`$ 倍等价于 $`\beta`$ 缩小 $`a`$ 倍。
 
@@ -373,9 +373,9 @@ $$
 
 更精细的做法是对每个分量分别做组内归一化再加权：
 
-$$
+```math
 \hat{A}_i = \sum_k w_k \cdot \frac{R_k(o_i) - \overline{R_k}}{\hat{\sigma}_k}.
-$$
+```
 
 这种方式确保每个分量的贡献不受其他分量尺度的影响，但引入了额外的计算开销和超参（每个分量的归一化统计量）。这种变体在第 7 章讨论序列级方法时会进一步涉及。
 

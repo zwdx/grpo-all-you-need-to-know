@@ -8,15 +8,15 @@
 
 **本章目录**
 
-- [2.1 从 PPO 文档的基线理论出发](#s2-1)
-- [2.2 蒙特卡洛基线：$`V^\pi(q)`$ 的采样估计](#s2-2)
-- [2.3 留一法基线（Leave-One-Out）与 RLOO](#s2-3)
-- [2.4 GRPO 用的是哪一种基线](#s2-4)
-- [2.5 除以标准差的含义与代价](#s2-5)
-- [2.6 与 Critic 基线的系统性对比](#s2-6)
-- [2.7 GAE 在 GRPO 中的命运](#s2-7)
-- [2.8 采样数 $`G`$ 的选取：数学分析](#s2-8)
-- [2.9 本章小结与自测](#s2-9)
+- [2.1 从 PPO 文档的基线理论出发](#user-content-s2-1)
+- [2.2 蒙特卡洛基线：$`V^\pi(q)`$ 的采样估计](#user-content-s2-2)
+- [2.3 留一法基线（Leave-One-Out）与 RLOO](#user-content-s2-3)
+- [2.4 GRPO 用的是哪一种基线](#user-content-s2-4)
+- [2.5 除以标准差的含义与代价](#user-content-s2-5)
+- [2.6 与 Critic 基线的系统性对比](#user-content-s2-6)
+- [2.7 GAE 在 GRPO 中的命运](#user-content-s2-7)
+- [2.8 采样数 $`G`$ 的选取：数学分析](#user-content-s2-8)
+- [2.9 本章小结与自测](#user-content-s2-9)
 
 <a id="s2-1"></a>
 
@@ -30,17 +30,17 @@
 
 **事实 (a)：基线的无偏性。** 对于任意只依赖状态 $`s`$ 而不依赖动作 $`a`$ 的函数 $`b(s)`$，从策略梯度估计量中减去它不改变梯度的期望值。即：
 
-$$
+```math
 \mathbb{E}_{a \sim \pi_\theta(\cdot|s)}\left[\nabla_\theta \log \pi_\theta(a|s) \cdot b(s)\right] = b(s) \cdot \mathbb{E}_{a \sim \pi_\theta(\cdot|s)}\left[\nabla_\theta \log \pi_\theta(a|s)\right] = b(s) \cdot \mathbf{0} = \mathbf{0}
-$$
+```
 
 其中最后一步使用了似然比技巧（likelihood ratio trick）的核心结论 $`\mathbb{E}[\nabla_\theta \log \pi_\theta] = \mathbf{0}`$（见 PPO 文档第 1 章）。因此，$`\mathbb{E}[\nabla_\theta \log \pi_\theta(a|s) \cdot (G - b(s))] = \mathbb{E}[\nabla_\theta \log \pi_\theta(a|s) \cdot G]`$，减去基线不影响梯度期望的无偏性。
 
 **事实 (b)：最优基线的形式。** 使梯度估计方差最小的标量基线为：
 
-$$
+```math
 b^*(s) = \frac{\mathbb{E}\left[\|\nabla_\theta \log \pi_\theta(a|s)\|^2 \cdot G\right]}{\mathbb{E}\left[\|\nabla_\theta \log \pi_\theta(a|s)\|^2\right]}
-$$
+```
 
 这是被梯度范数平方加权的回报期望，而非简单的 $`\mathbb{E}[G]`$。实践中，由于 $`b^*(s)`$ 难以精确计算，通常用状态价值函数 $`V^\pi(s) = \mathbb{E}[G \mid s]`$ 作为近似替代。PPO 正是通过训练一个 critic 网络来拟合 $`V^\pi(s)`$，进而构造广义优势估计（GAE）。
 
@@ -70,17 +70,17 @@ $$
 
 在 LLM RL 的 MDP 框架中（见 PPO 文档第 1 章及本文档第 1 章），prompt $`q`$ 充当初始状态 $`s_0`$，语言模型的生成过程构成一条完整轨迹 $`o = (y_1, y_2, \ldots, y_T)`$，奖励 $`R(q, o)`$ 通常在序列末尾给出（outcome reward）。因此，状态价值函数的定义简化为：
 
-$$
+```math
 V^\pi(q) = \mathbb{E}_{o \sim \pi(\cdot|q)}[R(q, o)]
-$$
+```
 
 这里的关键观察是：因为整条回答 $`o`$ 是从策略 $`\pi(\cdot|q)`$ 一次性采样得到的完整对象，$`V^\pi(q)`$ 就是对"该 prompt 下回答质量的期望"的一个简洁表达。不需要像传统 RL 那样对每个中间状态分别估计价值。
 
 给定当前策略 $`\pi_\theta`$，我们可以从 $`\pi_\theta(\cdot|q)`$ 中独立采样 $`G`$ 个回答 $`\{o_1, o_2, \ldots, o_G\}`$，并构造 $`V^\pi(q)`$ 的蒙特卡洛估计量：
 
-$$
+```math
 \hat{V}_G(q) = \frac{1}{G} \sum_{i=1}^{G} R(q, o_i)
-$$
+```
 
 记 $`r_i = R(q, o_i)`$ 为第 $`i`$ 个样本的奖励，则 $`\hat{V}_G(q) = \frac{1}{G}\sum_{i=1}^G r_i`$。
 
@@ -92,7 +92,7 @@ $$
 
 **证明：**
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}[\hat{V}_G(q)] &= \mathbb{E}\left[\frac{1}{G} \sum_{i=1}^{G} r_i\right] \\
 &= \frac{1}{G} \sum_{i=1}^{G} \mathbb{E}[r_i] \quad \text{（期望的线性性）} \\
@@ -100,7 +100,7 @@ $$
 &= \frac{1}{G} \sum_{i=1}^{G} V^\pi(q) \\
 &= V^\pi(q)
 \end{aligned}
-$$
+```
 
 证毕。$`\square`$
 
@@ -110,15 +110,15 @@ $$
 
 由于 $`o_1, \ldots, o_G`$ 相互独立，$`\hat{V}_G`$ 的方差为：
 
-$$
+```math
 \text{Var}[\hat{V}_G(q)] = \text{Var}\left[\frac{1}{G}\sum_{i=1}^G r_i\right] = \frac{1}{G^2}\sum_{i=1}^G \text{Var}[r_i] = \frac{\sigma^2(q)}{G}
-$$
+```
 
 其中我们定义了核心量：
 
-$$
+```math
 \sigma^2(q) \triangleq \text{Var}_{o \sim \pi(\cdot|q)}[R(q, o)]
-$$
+```
 
 $`\sigma^2(q)`$ 是**同一 prompt 下回答质量的内在方差**。它是本章后续所有分析的基石。直觉上：
 
@@ -134,44 +134,44 @@ $`\sigma^2(q)`$ 是**同一 prompt 下回答质量的内在方差**。它是本�
 
 现在考虑用 $`\hat{V}_G(q)`$ 替代 $`V^\pi(q)`$ 后，梯度估计量的性质。定义优势估计量：
 
-$$
+```math
 \hat{A}_i = r_i - \hat{V}_G(q) = r_i - \frac{1}{G}\sum_{j=1}^G r_j
-$$
+```
 
 对应的梯度估计量为：
 
-$$
+```math
 \hat{g} = \frac{1}{G}\sum_{i=1}^G \nabla_\theta \log \pi_\theta(o_i|q) \cdot \hat{A}_i
-$$
+```
 
 虽然 $`\hat{V}_G`$ 本身是 $`V^\pi`$ 的无偏估计，但 **$`\hat{A}_i`$ 作为整体用于梯度估计时是有偏的**。原因在于 $`\hat{V}_G`$ 中包含了 $`r_i`$ 自身——基线与被评估样本之间存在自相关（self-inclusion）。
 
 为了看清这一点，将 $`\hat{A}_i`$ 展开：
 
-$$
+```math
 \hat{A}_i = r_i - \frac{1}{G}\sum_{j=1}^G r_j = r_i - \frac{r_i}{G} - \frac{1}{G}\sum_{j \neq i} r_j = \frac{G-1}{G} r_i - \frac{1}{G}\sum_{j \neq i} r_j
-$$
+```
 
 代入梯度估计量并取期望：
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}[\hat{g}] &= \frac{1}{G}\sum_{i=1}^G \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot \left(\frac{G-1}{G} r_i - \frac{1}{G}\sum_{j \neq i} r_j\right)\right] \\
 &= \frac{1}{G}\sum_{i=1}^G \left(\frac{G-1}{G} \mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i] - \frac{1}{G}\sum_{j \neq i} \mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q)] \cdot \mathbb{E}[r_j]\right)
 \end{aligned}
-$$
+```
 
 注意第二项中，由于 $`o_i`$ 与 $`o_j`$（$`j \neq i`$）独立，期望可以分解。又因 $`\mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q)] = \mathbf{0}`$，第二项整体为零。因此：
 
-$$
+```math
 \mathbb{E}[\hat{g}] = \frac{G-1}{G} \cdot \frac{1}{G}\sum_{i=1}^G \mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i] = \frac{G-1}{G} \cdot \mathbb{E}[\nabla_\theta \log \pi_\theta(o|q) \cdot R(q,o)]
-$$
+```
 
 而真实的策略梯度为 $`\nabla_\theta J(\theta) = \mathbb{E}[\nabla_\theta \log \pi_\theta(o|q) \cdot R(q,o)]`$。因此：
 
-$$
+```math
 \mathbb{E}[\hat{g}] = \frac{G-1}{G} \cdot \nabla_\theta J(\theta)
-$$
+```
 
 **这表明全组均值基线导致的梯度估计存在一个 $`(G-1)/G`$ 的缩放偏差。** 我们将在 2.4 节详细讨论这个结果的深层含义。目前只需记住：自相关确实引入了偏差，但其形式是一个纯粹的常数缩放因子。
 
@@ -191,15 +191,15 @@ $$
 
 定义第 $`i`$ 个样本的留一法基线为：
 
-$$
+```math
 b_i^{\text{LOO}} = \frac{1}{G-1} \sum_{j \neq i} r_j
-$$
+```
 
 对应的优势估计量为：
 
-$$
+```math
 \hat{A}_i^{\text{LOO}} = r_i - b_i^{\text{LOO}} = r_i - \frac{1}{G-1}\sum_{j \neq i} r_j
-$$
+```
 
 <a id="s2-3-3"></a>
 
@@ -209,32 +209,32 @@ $$
 
 **证明：** 由期望的线性性，只需证明对每个 $`i`$：
 
-$$
+```math
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot \hat{A}_i^{\text{LOO}}\right] = \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot R(q, o_i)\right]
-$$
+```
 
 将 $`\hat{A}_i^{\text{LOO}} = r_i - b_i^{\text{LOO}}`$ 代入左边：
 
-$$
+```math
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot (r_i - b_i^{\text{LOO}})\right] = \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i\right] - \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot b_i^{\text{LOO}}\right]
-$$
+```
 
 关键在于第二项。注意 $`b_i^{\text{LOO}} = \frac{1}{G-1}\sum_{j \neq i} r_j`$ **只依赖于 $`\{o_j\}_{j \neq i}`$**，而 $`o_i`$ 与 $`\{o_j\}_{j \neq i}`$ 相互独立（因为它们是从 $`\pi(\cdot|q)`$ 中独立采样的）。因此：
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot b_i^{\text{LOO}}\right] &= \mathbb{E}_{\{o_j\}_{j \neq i}}\left[b_i^{\text{LOO}} \cdot \mathbb{E}_{o_i}\left[\nabla_\theta \log \pi_\theta(o_i|q) \mid \{o_j\}_{j \neq i}\right]\right] \\
 &= \mathbb{E}_{\{o_j\}_{j \neq i}}\left[b_i^{\text{LOO}} \cdot \mathbb{E}_{o_i}\left[\nabla_\theta \log \pi_\theta(o_i|q)\right]\right] \quad \text{（独立性）} \\
 &= \mathbb{E}_{\{o_j\}_{j \neq i}}\left[b_i^{\text{LOO}} \cdot \mathbf{0}\right] \quad \text{（似然比技巧）} \\
 &= \mathbf{0}
 \end{aligned}
-$$
+```
 
 因此：
 
-$$
+```math
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot \hat{A}_i^{\text{LOO}}\right] = \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i\right]
-$$
+```
 
 对所有 $`i`$ 求平均即得 $`\mathbb{E}[\hat{g}^{\text{LOO}}] = \nabla_\theta J(\theta)`$。证毕。$`\square`$
 
@@ -246,23 +246,23 @@ $$
 
 $`b_i^{\text{LOO}}`$ 基于 $`G-1`$ 个独立样本的均值，因此其方差为：
 
-$$
+```math
 \text{Var}[b_i^{\text{LOO}}] = \frac{\sigma^2(q)}{G-1}
-$$
+```
 
 与之对比，全组均值基线的方差为 $`\sigma^2(q)/G`$。留一法基线的方差略大，比值为 $`G/(G-1)`$。当 $`G=8`$ 时，比值为 $`8/7 \approx 1.14`$；当 $`G=64`$ 时，比值为 $`64/63 \approx 1.016`$。这是为无偏性付出的代价——在实践中几乎可以忽略。
 
 更完整地看，留一法梯度估计量的方差涉及 $`\hat{A}_i^{\text{LOO}} = r_i - b_i^{\text{LOO}}`$ 的方差。由于 $`r_i`$ 与 $`b_i^{\text{LOO}}`$ 独立：
 
-$$
+```math
 \text{Var}[\hat{A}_i^{\text{LOO}}] = \text{Var}[r_i] + \text{Var}[b_i^{\text{LOO}}] = \sigma^2(q) + \frac{\sigma^2(q)}{G-1} = \sigma^2(q) \cdot \frac{G}{G-1}
-$$
+```
 
 相比之下，全组均值优势 $`\hat{A}_i = r_i - \hat{V}_G`$ 的方差为（利用 $`r_i`$ 与 $`\hat{V}_G`$ 的协方差 $`\text{Cov}(r_i, \hat{V}_G) = \sigma^2/G`$）：
 
-$$
+```math
 \text{Var}[\hat{A}_i] = \text{Var}[r_i] + \text{Var}[\hat{V}_G] - 2\text{Cov}(r_i, \hat{V}_G) = \sigma^2 + \frac{\sigma^2}{G} - \frac{2\sigma^2}{G} = \sigma^2 \cdot \frac{G-1}{G}
-$$
+```
 
 有趣的是，全组均值优势的方差反而**更小**（因子 $`(G-1)/G < G/(G-1)`$），但这正是以偏差为代价换来的。这构成了一个经典的偏差-方差权衡（bias-variance tradeoff）。
 
@@ -272,17 +272,17 @@ $$
 
 RLOO（REINFORCE Leave-One-Out）由 Ahmadian et al. (2024) 在论文《Back to Basics: Revisiting REINFORCE Style Optimization for Learning from Human Feedback in LLMs》(arXiv:2402.14740) 中提出。它的定义极为简洁：
 
-$$
+```math
 \nabla_\theta J_{\text{RLOO}}(\theta) \approx \frac{1}{G}\sum_{i=1}^G \nabla_\theta \log \pi_\theta(o_i|q) \cdot \left(r_i - \frac{1}{G-1}\sum_{j \neq i} r_j\right)
-$$
+```
 
 RLOO 本质上就是 **REINFORCE + 留一法基线**：没有重要性比率（importance ratio）、没有 clip 操作、没有 KL 散度正则项。它是 GRPO 的"极简近亲"。
 
 **RLOO 与 GRPO 的关系可以用一个公式概括：**
 
-$$
+```math
 \text{GRPO} \approx \text{RLOO} + \text{PPO 式 clip} + \text{KL 正则项} + \text{除以组内 std}
-$$
+```
 
 具体而言：
 - RLOO 提供无偏的优势估计基础；
@@ -302,9 +302,9 @@ $$
 
 这是一个很多资料混淆的关键点。**DeepSeekMath 原论文（Shao et al., 2024）中定义的 GRPO 使用的是全组均值基线，而非留一法基线。** 原论文的优势定义为：
 
-$$
+```math
 \hat{A}_i^{\text{GRPO}} = \frac{r_i - \text{mean}(\{r_1, \ldots, r_G\})}{\text{std}(\{r_1, \ldots, r_G\})}
-$$
+```
 
 其中 $`\text{mean}`$ 和 $`\text{std}`$ 均基于全部 $`G`$ 个样本计算。因此，严格来说，原始 GRPO 的优势估计是**有偏的**，偏差量级为 $`O(1/G)`$（如 2.2.4 节所示）。
 
@@ -331,25 +331,25 @@ $$
 
 **命题 2.3**（全组均值优势与留一法优势的精确关系）。在不除以 std 的前提下，全组均值基线得到的优势恰好是留一法优势的 $`(G-1)/G`$ 倍：
 
-$$
+```math
 r_i - \text{mean}(\{r_1, \ldots, r_G\}) = \frac{G-1}{G} \left(r_i - b_i^{\text{LOO}}\right)
-$$
+```
 
 **证明：** 首先写出全组均值与留一法均值的关系：
 
-$$
+```math
 \text{mean}(\{r_1, \ldots, r_G\}) = \frac{1}{G}\sum_{j=1}^G r_j = \frac{1}{G}\left(r_i + \sum_{j \neq i} r_j\right) = \frac{r_i}{G} + \frac{G-1}{G} \cdot \frac{1}{G-1}\sum_{j \neq i} r_j = \frac{r_i}{G} + \frac{G-1}{G} \cdot b_i^{\text{LOO}}
-$$
+```
 
 因此：
 
-$$
+```math
 \begin{aligned}
 r_i - \text{mean} &= r_i - \frac{r_i}{G} - \frac{G-1}{G} \cdot b_i^{\text{LOO}} \\
 &= \frac{G-1}{G} \cdot r_i - \frac{G-1}{G} \cdot b_i^{\text{LOO}} \\
 &= \frac{G-1}{G} \left(r_i - b_i^{\text{LOO}}\right)
 \end{aligned}
-$$
+```
 
 证毕。$`\square`$
 
@@ -371,9 +371,9 @@ $$
 
 GRPO 的优势定义为：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \text{mean}(\{r_j\})}{\text{std}(\{r_j\})}
-$$
+```
 
 从统计学角度看，这是对组内奖励进行**标准化（standardization）**：减去均值再除以标准差，使得不同 prompt 的优势分布近似统一到零均值、单位方差的尺度上。如果组内奖励近似正态分布，标准化后的优势约服从 $`\mathcal{N}(0, 1)`$。
 
@@ -394,17 +394,17 @@ $$
 
 **第一，破坏了常数缩放论证。** 如 2.4.4 节所述，在不除 std 时，全组均值基线与留一法基线只差一个常数因子。但 std 的计算也包含 $`r_i`$：
 
-$$
+```math
 \hat{\sigma} = \sqrt{\frac{1}{G}\sum_{j=1}^G (r_j - \bar{r})^2}
-$$
+```
 
 这使得 $`\hat{A}_i = (r_i - \bar{r})/\hat{\sigma}`$ 成为 $`r_i`$ 的非线性函数。命题 2.3 的简洁结论不再成立，偏差分析变得更加复杂。
 
 **第二，引入难度偏差（difficulty bias）。** 考虑 $`\hat{A}_i`$ 的量级与 $`\hat{\sigma}`$ 的关系：
 
-$$
+```math
 |\hat{A}_i| \propto \frac{|r_i - \bar{r}|}{\hat{\sigma}(q)}
-$$
+```
 
 当 $`\hat{\sigma}(q)`$ 很小时（即该 prompt 对模型来说太简单或太难，组内奖励几乎全同），$`\hat{A}_i`$ 会被放大；当 $`\hat{\sigma}(q)`$ 很大时（模型在该 prompt 上表现不稳定），$`\hat{A}_i`$ 会被压缩。这意味着：
 
@@ -415,9 +415,9 @@ $$
 
 **第三，数值不稳定性。** 当 $`\hat{\sigma}(q) \to 0`$ 时，$`\hat{A}_i`$ 趋向无穷大。实践中必须加入保护项：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \bar{r}}{\hat{\sigma} + \epsilon}
-$$
+```
 
 其中 $`\epsilon`$ 通常取 $`10^{-8}`$ 量级。但当 $`\hat{\sigma}`$ 本身就在 $`\epsilon`$ 量级时，这个保护并不能真正解决问题——它只是把爆炸的上限从无穷大变成了一个很大的有限值。
 
@@ -481,9 +481,9 @@ Critic 的核心优势在于它是状态相关的：对于序列中的每个前�
 
 在 PPO 文档第 4 章中，广义优势估计（Generalized Advantage Estimation, GAE）定义为：
 
-$$
+```math
 \hat{A}_t^{\text{GAE}} = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}
-$$
+```
 
 其中 TD 残差 $`\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)`$，$`\gamma`$ 是折扣因子，$`\lambda \in [0, 1]`$ 控制偏差-方差权衡。
 
@@ -499,15 +499,15 @@ $$
 
 在这些条件下考察 TD 残差。对于中间步 $`t < T`$：
 
-$$
+```math
 \delta_t = 0 + V(s_{t+1}) - V(s_t)
-$$
+```
 
 如果 $`V`$ 近似为常数（如 2.6.1 节论证的，在 outcome reward 下这是合理的），则 $`\delta_t \approx 0`$。所有信息集中在最后一步：
 
-$$
+```math
 \delta_T = R(q, o) - V(s_T)
-$$
+```
 
 因此 GAE 退化为：$`\hat{A}_t^{\text{GAE}} \approx (\gamma\lambda)^{T-t} \cdot \delta_T`$。当 $`\gamma = 1`$ 且 $`\lambda = 1`$ 时，所有时间步的优势都等于 $`\delta_T = R(q, o) - V(s_T)`$，即一个与 $`t`$ 无关的常数。
 
@@ -545,9 +545,9 @@ $$
 
 当 $`G`$ 过小时，std 的估计极不可靠。对于正态分布样本，样本标准差 $`\hat{\sigma}`$ 的相对标准误（coefficient of variation）约为：
 
-$$
+```math
 \frac{\text{SE}[\hat{\sigma}]}{\sigma} \approx \frac{1}{\sqrt{2(G-1)}}
-$$
+```
 
 当 $`G = 2`$ 时，相对标准误为 $`1/\sqrt{2} \approx 0.707`$，即 std 估计量的波动幅度与其真值同量级。当 $`G = 4`$ 时，相对标准误为 $`1/\sqrt{6} \approx 0.408`$，仍然很大。当 $`G = 8`$ 时，相对标准误为 $`1/\sqrt{14} \approx 0.267`$，开始进入可用范围。
 

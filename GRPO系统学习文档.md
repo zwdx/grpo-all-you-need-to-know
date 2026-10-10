@@ -3,263 +3,263 @@
 # GRPO 系统学习文档
 
 <!-- toc:start -->
-[返回项目首页](README.md) · [阅读路线](#h5) · [全文通用符号约定](#h6)
+[返回项目首页](README.md) · [阅读路线](#user-content-h5) · [全文通用符号约定](#user-content-h6)
 
 ## 可点击目录
 
-- [第 1 章 从 PPO 到 GRPO：动机与问题设定](#chapter-1)
-- [第 2 章 组内基线的理论基础](#chapter-2)
-- [第 3 章 GRPO 算法本体](#chapter-3)
-- [第 4 章 奖励信号与可验证奖励（RLVR）](#chapter-4)
-- [第 5 章 GRPO 的已知偏差与 Dr.GRPO 修正](#chapter-5)
-- [第 6 章 DAPO：面向长链推理的四项关键改进](#chapter-6)
-- [第 7 章 序列级方法与变体谱系](#chapter-7)
-- [第 8 章 工程实现与实践](#chapter-8)
+- [第 1 章 从 PPO 到 GRPO：动机与问题设定](#user-content-chapter-1)
+- [第 2 章 组内基线的理论基础](#user-content-chapter-2)
+- [第 3 章 GRPO 算法本体](#user-content-chapter-3)
+- [第 4 章 奖励信号与可验证奖励（RLVR）](#user-content-chapter-4)
+- [第 5 章 GRPO 的已知偏差与 Dr.GRPO 修正](#user-content-chapter-5)
+- [第 6 章 DAPO：面向长链推理的四项关键改进](#user-content-chapter-6)
+- [第 7 章 序列级方法与变体谱系](#user-content-chapter-7)
+- [第 8 章 工程实现与实践](#user-content-chapter-8)
 
 <details>
 <summary>展开小节目录</summary>
 
-- [1.1 开场定位：GRPO 是什么](#s1-1)
-- [1.2 LLM 后训练的 MDP 视角](#s1-2)
-  - [1.2.1 状态、动作与策略](#s1-2-1)
-  - [1.2.2 奖励的特殊性：outcome-level 稀疏奖励](#s1-2-2)
-  - [1.2.3 关键推论：所有 token 共享同一个回报值](#s1-2-3)
-  - [1.2.4 折扣因子 $`\gamma`$ 的处境](#s1-2-4)
-- [1.3 PPO 在 LLM 场景下的四个负担](#s1-3)
-  - [1.3.1 显存负担：四模型并存](#s1-3-1)
-  - [1.3.2 训练负担：critic 与 actor 的资源竞争](#s1-3-2)
-  - [1.3.3 价值函数在长序列上的固有困难](#s1-3-3)
-  - [1.3.4 超参与工程负担](#s1-3-4)
-- [1.4 GRPO 的核心洞察：以采样换模型](#s1-4)
-- [1.5 PPO 与 GRPO 的系统对比](#s1-5)
-- [1.6 GRPO 的适用边界](#s1-6)
-  - [1.6.1 适合的场景](#s1-6-1)
-  - [1.6.2 不适合或需谨慎的场景](#s1-6-2)
-  - [1.6.3 与 RLVR 的关系](#s1-6-3)
-- [1.7 全文档阅读路线](#s1-7)
-- [1.8 本章小结与自测](#s1-8)
-  - [要点回顾](#h33)
-  - [自测题](#h34)
-- [2.1 从 PPO 文档的基线理论出发](#s2-1)
-  - [2.1.1 基线的两个基本事实](#s2-1-1)
-  - [2.1.2 本章要回答的问题](#s2-1-2)
-- [2.2 蒙特卡洛基线：$`V^\pi(q)`$ 的采样估计](#s2-2)
-  - [2.2.1 LLM RL 中的价值函数与采样估计](#s2-2-1)
-  - [2.2.2 无偏性证明](#s2-2-2)
-  - [2.2.3 方差分析](#s2-2-3)
-  - [2.2.4 基线误差向梯度的传导](#s2-2-4)
-- [2.3 留一法基线（Leave-One-Out）与 RLOO](#s2-3)
-  - [2.3.1 动机：消除自相关偏差](#s2-3-1)
-  - [2.3.2 留一法基线的定义](#s2-3-2)
-  - [2.3.3 无偏性的严格证明](#s2-3-3)
-  - [2.3.4 留一法基线的方差](#s2-3-4)
-  - [2.3.5 RLOO：REINFORCE Leave-One-Out](#s2-3-5)
-- [2.4 GRPO 用的是哪一种基线](#s2-4)
-  - [2.4.1 原论文的明确选择](#s2-4-1)
-  - [2.4.2 偏差的实践影响](#s2-4-2)
-  - [2.4.3 论文与实现的差异](#s2-4-3)
-  - [2.4.4 偏差的定量表达：$`(G-1)/G`$ 缩放定理](#s2-4-4)
-- [2.5 除以标准差的含义与代价](#s2-5)
-  - [2.5.1 数学含义：逐 prompt 的自适应尺度归一化](#s2-5-1)
-  - [2.5.2 好处](#s2-5-2)
-  - [2.5.3 代价：难度偏差与非线性破坏](#s2-5-3)
-  - [2.5.4 全同奖励下的零梯度现象](#s2-5-4)
-- [2.6 与 Critic 基线的系统性对比](#s2-6)
-  - [2.6.1 自适应性的深入讨论](#s2-6-1)
-  - [2.6.2 结论性判断](#s2-6-2)
-- [2.7 GAE 在 GRPO 中的命运](#s2-7)
-  - [2.7.1 GAE 的回顾](#s2-7-1)
-  - [2.7.2 GRPO 设定下的退化](#s2-7-2)
-  - [2.7.3 代价：信用分配的丧失](#s2-7-3)
-- [2.8 采样数 $`G`$ 的选取：数学分析](#s2-8)
-  - [2.8.1 边际收益递减](#s2-8-1)
-  - [2.8.2 小 $`G`$ 的统计风险](#s2-8-2)
-  - [2.8.3 实用区间](#s2-8-3)
-  - [2.8.4 $`G`$ 与 Prompt 多样性的权衡](#s2-8-4)
-- [2.9 本章小结与自测](#s2-9)
-  - [本章要点](#h73)
-  - [自测题](#h74)
-- [3.1 符号与设定](#s3-1)
-- [3.2 GRPO 完整目标函数](#s3-2)
-  - [3.2.1 DeepSeekMath 原论文形式](#s3-2-1)
-  - [3.2.2 逐项拆解](#s3-2-2)
-- [3.3 KL 项的无偏估计器](#s3-3)
-  - [3.3.1 问题陈述](#s3-3-1)
-  - [3.3.2 Schulman k3 估计器及其无偏性证明](#s3-3-2)
-  - [3.3.3 非负性证明](#s3-3-3)
-  - [3.3.4 与其他估计器的对比](#s3-3-4)
-  - [3.3.5 k3 估计器的梯度分析](#s3-3-5)
-- [3.4 GRPO 与 PPO 的逐项对照](#s3-4)
-- [3.5 完整算法伪代码](#s3-5)
-  - [3.5.1 关键超参与典型取值](#s3-5-1)
-  - [3.5.2 K=1 时 clip 失效的关键观察](#s3-5-2)
-- [3.6 计算与显存分析](#s3-6)
-  - [3.6.1 训练中需驻留的模型](#s3-6-1)
-  - [3.6.2 显存粗略分解](#s3-6-2)
-  - [3.6.3 时间成本的转移](#s3-6-3)
-  - [3.6.4 何时 GRPO 更划算](#s3-6-4)
-- [3.7 一个极简的数值算例](#s3-7)
-  - [3.7.1 二值奖励、半对半错](#s3-7-1)
-  - [3.7.2 全对：梯度消失](#s3-7-2)
-  - [3.7.3 三对一错：不对称惩罚](#s3-7-3)
-- [3.8 本章小结与自测](#s3-8)
-  - [要点回顾](#h100)
-  - [自测题](#h101)
-- [4.1 为什么奖励设计是 GRPO 的第一性问题](#s4-1)
-- [4.2 两类奖励源的严格区分](#s4-2)
-  - [4.2.1 奖励模型（Reward Model, RM）](#s4-2-1)
-  - [4.2.2 规则/可验证奖励（Rule-based / Verifiable Reward）](#s4-2-2)
-  - [4.2.3 两类奖励的对比](#s4-2-3)
-  - [4.2.4 为什么 GRPO 的成功集中在规则奖励场景](#s4-2-4)
-- [4.3 RLVR 范式](#s4-3)
-  - [4.3.1 定义与数据构成](#s4-3-1)
-  - [4.3.2 RLVR 与经典 RLHF 的关键差异](#s4-3-2)
-  - [4.3.3 代表性工作](#s4-3-3)
-- [4.4 Outcome Reward 与 Process Reward 的数学区别](#s4-4)
-  - [4.4.1 Outcome Reward（结果奖励）](#s4-4-1)
-  - [4.4.2 Process Reward（过程奖励）](#s4-4-2)
-  - [4.4.3 当前主流选择](#s4-4-3)
-- [4.5 Reward Hacking 的机理与表现](#s4-5)
-  - [4.5.1 形式化定义](#s4-5-1)
-  - [4.5.2 RM 场景的典型 Hacking](#s4-5-2)
-  - [4.5.3 RLVR 场景的 Hacking](#s4-5-3)
-  - [4.5.4 缓解手段的机理](#s4-5-4)
-- [4.6 二值奖励下 GRPO 的特殊动力学](#s4-6)
-  - [4.6.1 组内统计量的解析表达](#s4-6-1)
-  - [4.6.2 信号强度的退化分析](#s4-6-2)
-  - [4.6.3 数值表](#s4-6-3)
-  - [4.6.4 两个重要实践结论](#s4-6-4)
-- [4.7 奖励的尺度、稀疏性与组内归一化的相互作用](#s4-7)
-  - [4.7.1 尺度不变性的证明](#s4-7-1)
-  - [4.7.2 KL 项打破尺度不变性](#s4-7-2)
-  - [4.7.3 多目标奖励的组合](#s4-7-3)
-- [4.8 奖励与 GRPO 假设的一致性检查清单](#s4-8)
-- [4.9 本章小结与自测](#s4-9)
-  - [要点总结](#h133)
-  - [自测题](#h134)
-- [5.1 为什么 GRPO 会有系统性偏差](#s5-1)
-- [5.2 长度偏差（response-level length bias）的严格推导](#s5-2)
-  - [5.2.1 从 GRPO 目标函数的内层求和入手](#s5-2-1)
-  - [5.2.2 梯度分析](#s5-2-2)
-  - [5.2.3 分情况讨论：不对称的后果](#s5-2-3)
-  - [5.2.4 为什么这在数学推理中有害](#s5-2-4)
-  - [5.2.5 Dr.GRPO 的修正：去掉 $`(1/|o_i|)`$](#s5-2-5)
-  - [5.2.6 长度偏差也存在于开源 PPO 实现](#s5-2-6)
-- [5.3 难度偏差（question-level difficulty bias）的严格推导](#s5-3)
-  - [5.3.1 从组内 std 归一化入手](#s5-3-1)
-  - [5.3.2 与第 4 章信号强度分析的矛盾](#s5-3-2)
-  - [5.3.3 二值奖励下的严格刻画](#s5-3-3)
-  - [5.3.4 Dr.GRPO 的修正：去掉 $`(1/\text{std})`$](#s5-3-4)
-  - [5.3.5 数值稳定性与零梯度的澄清](#s5-3-5)
-- [5.4 loss 聚合方式（token-mean vs sequence-mean）](#s5-4)
-  - [5.4.1 三种常见聚合方式](#s5-4-1)
-  - [5.4.2 一个实践中的微妙辨析](#s5-4-2)
-  - [5.4.3 后续研究](#s5-4-3)
-- [5.5 Dr.GRPO 的完整修正版目标函数](#s5-5)
-  - [5.5.1 合并两处修正](#s5-5-1)
-  - [5.5.2 与标准策略梯度的关系](#s5-5-2)
-  - [5.5.3 实验结论（定性）](#s5-5-3)
-- [5.6 其他被讨论的 GRPO 偏差与争议](#s5-6)
-  - [5.6.1 Advantage 的符号-长度耦合](#s5-6-1)
-  - [5.6.2 二值奖励下组均值中心化的梯度枯竭](#s5-6-2)
-  - [5.6.3 过校准与过度自信](#s5-6-3)
-  - [5.6.4 On-policy vs Off-policy GRPO](#s5-6-4)
-- [5.7 偏差修正的取舍与争议](#s5-7)
-  - [5.7.1 "无偏"与"长度不变"的不可能性](#s5-7-1)
-  - [5.7.2 实践建议](#s5-7-2)
-- [5.8 本章小结与自测](#s5-8)
-  - [要点总结](#h167)
-  - [自测题](#h168)
-- [6.1 DAPO 的定位与整体思路](#s6-1)
-- [6.2 Clip-Higher：解耦上下裁剪阈值](#s6-2)
-  - [6.2.1 熵崩塌的定义与危害](#s6-2-1)
-  - [6.2.2 对称 clip 如何加速熵崩塌](#s6-2-2)
-  - [6.2.3 Clip-Higher 的解法](#s6-2-3)
-  - [6.2.4 为什么下界不一起放宽](#s6-2-4)
-  - [6.2.5 对诊断指标的影响](#s6-2-5)
-- [6.3 Dynamic Sampling：动态采样过滤无效 prompt](#s6-3)
-  - [6.3.1 动机：零梯度样本的算力浪费](#s6-3-1)
-  - [6.3.2 DAPO 的动态采样机制](#s6-3-2)
-  - [6.3.3 为什么这有效：隐式课程学习](#s6-3-3)
-  - [6.3.4 代价与注意点](#s6-3-4)
-  - [6.3.5 伪代码](#s6-3-5)
-- [6.4 Token-Level Policy Gradient Loss](#s6-4)
-  - [6.4.1 动机：序列内平均的长度偏差](#s6-4-1)
-  - [6.4.2 DAPO 的 token-level 聚合](#s6-4-2)
-  - [6.4.3 与 Dr.GRPO 的关系](#s6-4-3)
-  - [6.4.4 对 long-CoT 的关键意义](#s6-4-4)
-- [6.5 Overlong Reward Shaping：超长奖励塑形](#s6-5)
-  - [6.5.1 动机：截断带来的奖励噪声](#s6-5-1)
-  - [6.5.2 DAPO 的两部分解法](#s6-5-2)
-  - [6.5.3 软惩罚的数学动机](#s6-5-3)
-  - [6.5.4 堵住 reward hacking 路径](#s6-5-4)
-- [6.6 DAPO 移除 KL 项的决策](#s6-6)
-- [6.7 DAPO 完整目标函数与算法](#s6-7)
-  - [6.7.1 完整目标函数](#s6-7-1)
-  - [6.7.2 算法伪代码](#s6-7-2)
-  - [6.7.3 DAPO 相对 GRPO 的改动总结](#s6-7-3)
-- [6.8 DAPO 的工程系统与可复现性](#s6-8)
-- [6.9 本章小结与自测](#s6-9)
-  - [要点回顾](#h200)
-  - [自测题](#h201)
-- [7.1 变体爆炸的背景与分类框架](#s7-1)
-  - [7.1.1 为什么 GRPO 变体如此之多](#s7-1-1)
-  - [7.1.2 四组件分类框架](#s7-1-2)
-- [7.2 GSPO：序列级重要性比率的数学动机](#s7-2)
-  - [7.2.1 Token 级 IS 比率的三重问题](#s7-2-1)
-  - [7.2.2 GSPO 的序列级比率](#s7-2-2)
-  - [7.2.3 梯度分析：GSPO vs GRPO](#s7-2-3)
-  - [7.2.4 ε 的量级差异](#s7-2-4)
-  - [7.2.5 GSPO 的实践影响](#s7-2-5)
-- [7.3 CISPO：保留全部 Token 梯度](#s7-3)
-  - [7.3.1 Hard Clip 的信息丢弃问题](#s7-3-1)
-  - [7.3.2 CISPO 的解法：Detached IS 权重](#s7-3-2)
-  - [7.3.3 梯度对比：CISPO vs PPO/GRPO](#s7-3-3)
-  - [7.3.4 为什么这对长 CoT 重要](#s7-3-4)
-- [7.4 其他值得了解的变体](#s7-4)
-  - [7.4.1 RLOO](#s7-4-1)
-  - [7.4.2 Dr.GRPO](#s7-4-2)
-  - [7.4.3 GVPO](#s7-4-3)
-  - [7.4.4 BAPO](#s7-4-4)
-  - [7.4.5 SAPO](#s7-4-5)
-  - [7.4.6 长度偏差的后续工作](#s7-4-6)
-  - [7.4.7 关于变体数量的声明](#s7-4-7)
-- [7.5 谱系图与演化逻辑](#s7-5)
-  - [7.5.1 演化树](#s7-5-1)
-  - [7.5.2 时间线表格](#s7-5-2)
-- [7.6 选型建议](#s7-6)
-  - [7.6.1 决策路径](#s7-6-1)
-  - [7.6.2 横向对比大表](#s7-6-2)
-  - [7.6.3 务实建议](#s7-6-3)
-- [7.7 本章小结与自测](#s7-7)
-  - [要点回顾](#h233)
-  - [自测题](#h234)
-- [8.1 框架选型与上手路径](#s8-1)
-  - [8.1.1 主流框架对比](#s8-1-1)
-  - [8.1.2 TRL 最小可运行示例](#s8-1-2)
-- [8.2 从零实现 GRPO 的核心逻辑](#s8-2)
-  - [8.2.1 奖励函数：规则奖励与防 hacking](#s8-2-1)
-  - [8.2.2 Rollout 与组采样：old_logprob 的正确获取](#s8-2-2)
-  - [8.2.3 优势计算：严格按 prompt 分组](#s8-2-3)
-  - [8.2.4 将序列级优势广播到每个 token](#s8-2-4)
-  - [8.2.5 损失计算：比率、clip、k3 KL、聚合](#s8-2-5)
-  - [8.2.6 Mask 的正确处理](#s8-2-6)
-- [8.3 显存、并行与 Rollout 加速](#s8-3)
-  - [8.3.1 显存分解](#s8-3-1)
-  - [8.3.2 省显存的手段及其代价](#s8-3-2)
-  - [8.3.3 并行策略](#s8-3-3)
-  - [8.3.4 Rollout 与训练的耦合方式](#s8-3-4)
-- [8.4 训练诊断指标](#s8-4)
-  - [8.4.1 指标速查表](#s8-4-1)
-  - [8.4.2 GRPO 特有的诊断逻辑](#s8-4-2)
-  - [8.4.3 症状驱动的排查顺序清单](#s8-4-3)
-- [8.5 常见坑清单](#s8-5)
-- [8.6 学习资源与进阶路径](#s8-6)
-  - [8.6.1 论文清单（按推荐阅读顺序）](#s8-6-1)
-  - [8.6.2 代码库](#s8-6-2)
-  - [8.6.3 一条务实的学习路径](#s8-6-3)
-- [8.7 本章小结与全文档收尾](#s8-7)
-  - [学完这两份文档之后该做什么](#h261)
+- [1.1 开场定位：GRPO 是什么](#user-content-s1-1)
+- [1.2 LLM 后训练的 MDP 视角](#user-content-s1-2)
+  - [1.2.1 状态、动作与策略](#user-content-s1-2-1)
+  - [1.2.2 奖励的特殊性：outcome-level 稀疏奖励](#user-content-s1-2-2)
+  - [1.2.3 关键推论：所有 token 共享同一个回报值](#user-content-s1-2-3)
+  - [1.2.4 折扣因子 $`\gamma`$ 的处境](#user-content-s1-2-4)
+- [1.3 PPO 在 LLM 场景下的四个负担](#user-content-s1-3)
+  - [1.3.1 显存负担：四模型并存](#user-content-s1-3-1)
+  - [1.3.2 训练负担：critic 与 actor 的资源竞争](#user-content-s1-3-2)
+  - [1.3.3 价值函数在长序列上的固有困难](#user-content-s1-3-3)
+  - [1.3.4 超参与工程负担](#user-content-s1-3-4)
+- [1.4 GRPO 的核心洞察：以采样换模型](#user-content-s1-4)
+- [1.5 PPO 与 GRPO 的系统对比](#user-content-s1-5)
+- [1.6 GRPO 的适用边界](#user-content-s1-6)
+  - [1.6.1 适合的场景](#user-content-s1-6-1)
+  - [1.6.2 不适合或需谨慎的场景](#user-content-s1-6-2)
+  - [1.6.3 与 RLVR 的关系](#user-content-s1-6-3)
+- [1.7 全文档阅读路线](#user-content-s1-7)
+- [1.8 本章小结与自测](#user-content-s1-8)
+  - [要点回顾](#user-content-h33)
+  - [自测题](#user-content-h34)
+- [2.1 从 PPO 文档的基线理论出发](#user-content-s2-1)
+  - [2.1.1 基线的两个基本事实](#user-content-s2-1-1)
+  - [2.1.2 本章要回答的问题](#user-content-s2-1-2)
+- [2.2 蒙特卡洛基线：$`V^\pi(q)`$ 的采样估计](#user-content-s2-2)
+  - [2.2.1 LLM RL 中的价值函数与采样估计](#user-content-s2-2-1)
+  - [2.2.2 无偏性证明](#user-content-s2-2-2)
+  - [2.2.3 方差分析](#user-content-s2-2-3)
+  - [2.2.4 基线误差向梯度的传导](#user-content-s2-2-4)
+- [2.3 留一法基线（Leave-One-Out）与 RLOO](#user-content-s2-3)
+  - [2.3.1 动机：消除自相关偏差](#user-content-s2-3-1)
+  - [2.3.2 留一法基线的定义](#user-content-s2-3-2)
+  - [2.3.3 无偏性的严格证明](#user-content-s2-3-3)
+  - [2.3.4 留一法基线的方差](#user-content-s2-3-4)
+  - [2.3.5 RLOO：REINFORCE Leave-One-Out](#user-content-s2-3-5)
+- [2.4 GRPO 用的是哪一种基线](#user-content-s2-4)
+  - [2.4.1 原论文的明确选择](#user-content-s2-4-1)
+  - [2.4.2 偏差的实践影响](#user-content-s2-4-2)
+  - [2.4.3 论文与实现的差异](#user-content-s2-4-3)
+  - [2.4.4 偏差的定量表达：$`(G-1)/G`$ 缩放定理](#user-content-s2-4-4)
+- [2.5 除以标准差的含义与代价](#user-content-s2-5)
+  - [2.5.1 数学含义：逐 prompt 的自适应尺度归一化](#user-content-s2-5-1)
+  - [2.5.2 好处](#user-content-s2-5-2)
+  - [2.5.3 代价：难度偏差与非线性破坏](#user-content-s2-5-3)
+  - [2.5.4 全同奖励下的零梯度现象](#user-content-s2-5-4)
+- [2.6 与 Critic 基线的系统性对比](#user-content-s2-6)
+  - [2.6.1 自适应性的深入讨论](#user-content-s2-6-1)
+  - [2.6.2 结论性判断](#user-content-s2-6-2)
+- [2.7 GAE 在 GRPO 中的命运](#user-content-s2-7)
+  - [2.7.1 GAE 的回顾](#user-content-s2-7-1)
+  - [2.7.2 GRPO 设定下的退化](#user-content-s2-7-2)
+  - [2.7.3 代价：信用分配的丧失](#user-content-s2-7-3)
+- [2.8 采样数 $`G`$ 的选取：数学分析](#user-content-s2-8)
+  - [2.8.1 边际收益递减](#user-content-s2-8-1)
+  - [2.8.2 小 $`G`$ 的统计风险](#user-content-s2-8-2)
+  - [2.8.3 实用区间](#user-content-s2-8-3)
+  - [2.8.4 $`G`$ 与 Prompt 多样性的权衡](#user-content-s2-8-4)
+- [2.9 本章小结与自测](#user-content-s2-9)
+  - [本章要点](#user-content-h73)
+  - [自测题](#user-content-h74)
+- [3.1 符号与设定](#user-content-s3-1)
+- [3.2 GRPO 完整目标函数](#user-content-s3-2)
+  - [3.2.1 DeepSeekMath 原论文形式](#user-content-s3-2-1)
+  - [3.2.2 逐项拆解](#user-content-s3-2-2)
+- [3.3 KL 项的无偏估计器](#user-content-s3-3)
+  - [3.3.1 问题陈述](#user-content-s3-3-1)
+  - [3.3.2 Schulman k3 估计器及其无偏性证明](#user-content-s3-3-2)
+  - [3.3.3 非负性证明](#user-content-s3-3-3)
+  - [3.3.4 与其他估计器的对比](#user-content-s3-3-4)
+  - [3.3.5 k3 估计器的梯度分析](#user-content-s3-3-5)
+- [3.4 GRPO 与 PPO 的逐项对照](#user-content-s3-4)
+- [3.5 完整算法伪代码](#user-content-s3-5)
+  - [3.5.1 关键超参与典型取值](#user-content-s3-5-1)
+  - [3.5.2 K=1 时 clip 失效的关键观察](#user-content-s3-5-2)
+- [3.6 计算与显存分析](#user-content-s3-6)
+  - [3.6.1 训练中需驻留的模型](#user-content-s3-6-1)
+  - [3.6.2 显存粗略分解](#user-content-s3-6-2)
+  - [3.6.3 时间成本的转移](#user-content-s3-6-3)
+  - [3.6.4 何时 GRPO 更划算](#user-content-s3-6-4)
+- [3.7 一个极简的数值算例](#user-content-s3-7)
+  - [3.7.1 二值奖励、半对半错](#user-content-s3-7-1)
+  - [3.7.2 全对：梯度消失](#user-content-s3-7-2)
+  - [3.7.3 三对一错：不对称惩罚](#user-content-s3-7-3)
+- [3.8 本章小结与自测](#user-content-s3-8)
+  - [要点回顾](#user-content-h100)
+  - [自测题](#user-content-h101)
+- [4.1 为什么奖励设计是 GRPO 的第一性问题](#user-content-s4-1)
+- [4.2 两类奖励源的严格区分](#user-content-s4-2)
+  - [4.2.1 奖励模型（Reward Model, RM）](#user-content-s4-2-1)
+  - [4.2.2 规则/可验证奖励（Rule-based / Verifiable Reward）](#user-content-s4-2-2)
+  - [4.2.3 两类奖励的对比](#user-content-s4-2-3)
+  - [4.2.4 为什么 GRPO 的成功集中在规则奖励场景](#user-content-s4-2-4)
+- [4.3 RLVR 范式](#user-content-s4-3)
+  - [4.3.1 定义与数据构成](#user-content-s4-3-1)
+  - [4.3.2 RLVR 与经典 RLHF 的关键差异](#user-content-s4-3-2)
+  - [4.3.3 代表性工作](#user-content-s4-3-3)
+- [4.4 Outcome Reward 与 Process Reward 的数学区别](#user-content-s4-4)
+  - [4.4.1 Outcome Reward（结果奖励）](#user-content-s4-4-1)
+  - [4.4.2 Process Reward（过程奖励）](#user-content-s4-4-2)
+  - [4.4.3 当前主流选择](#user-content-s4-4-3)
+- [4.5 Reward Hacking 的机理与表现](#user-content-s4-5)
+  - [4.5.1 形式化定义](#user-content-s4-5-1)
+  - [4.5.2 RM 场景的典型 Hacking](#user-content-s4-5-2)
+  - [4.5.3 RLVR 场景的 Hacking](#user-content-s4-5-3)
+  - [4.5.4 缓解手段的机理](#user-content-s4-5-4)
+- [4.6 二值奖励下 GRPO 的特殊动力学](#user-content-s4-6)
+  - [4.6.1 组内统计量的解析表达](#user-content-s4-6-1)
+  - [4.6.2 信号强度的退化分析](#user-content-s4-6-2)
+  - [4.6.3 数值表](#user-content-s4-6-3)
+  - [4.6.4 两个重要实践结论](#user-content-s4-6-4)
+- [4.7 奖励的尺度、稀疏性与组内归一化的相互作用](#user-content-s4-7)
+  - [4.7.1 尺度不变性的证明](#user-content-s4-7-1)
+  - [4.7.2 KL 项打破尺度不变性](#user-content-s4-7-2)
+  - [4.7.3 多目标奖励的组合](#user-content-s4-7-3)
+- [4.8 奖励与 GRPO 假设的一致性检查清单](#user-content-s4-8)
+- [4.9 本章小结与自测](#user-content-s4-9)
+  - [要点总结](#user-content-h133)
+  - [自测题](#user-content-h134)
+- [5.1 为什么 GRPO 会有系统性偏差](#user-content-s5-1)
+- [5.2 长度偏差（response-level length bias）的严格推导](#user-content-s5-2)
+  - [5.2.1 从 GRPO 目标函数的内层求和入手](#user-content-s5-2-1)
+  - [5.2.2 梯度分析](#user-content-s5-2-2)
+  - [5.2.3 分情况讨论：不对称的后果](#user-content-s5-2-3)
+  - [5.2.4 为什么这在数学推理中有害](#user-content-s5-2-4)
+  - [5.2.5 Dr.GRPO 的修正：去掉 $`(1/|o_i|)`$](#user-content-s5-2-5)
+  - [5.2.6 长度偏差也存在于开源 PPO 实现](#user-content-s5-2-6)
+- [5.3 难度偏差（question-level difficulty bias）的严格推导](#user-content-s5-3)
+  - [5.3.1 从组内 std 归一化入手](#user-content-s5-3-1)
+  - [5.3.2 与第 4 章信号强度分析的矛盾](#user-content-s5-3-2)
+  - [5.3.3 二值奖励下的严格刻画](#user-content-s5-3-3)
+  - [5.3.4 Dr.GRPO 的修正：去掉 $`(1/\text{std})`$](#user-content-s5-3-4)
+  - [5.3.5 数值稳定性与零梯度的澄清](#user-content-s5-3-5)
+- [5.4 loss 聚合方式（token-mean vs sequence-mean）](#user-content-s5-4)
+  - [5.4.1 三种常见聚合方式](#user-content-s5-4-1)
+  - [5.4.2 一个实践中的微妙辨析](#user-content-s5-4-2)
+  - [5.4.3 后续研究](#user-content-s5-4-3)
+- [5.5 Dr.GRPO 的完整修正版目标函数](#user-content-s5-5)
+  - [5.5.1 合并两处修正](#user-content-s5-5-1)
+  - [5.5.2 与标准策略梯度的关系](#user-content-s5-5-2)
+  - [5.5.3 实验结论（定性）](#user-content-s5-5-3)
+- [5.6 其他被讨论的 GRPO 偏差与争议](#user-content-s5-6)
+  - [5.6.1 Advantage 的符号-长度耦合](#user-content-s5-6-1)
+  - [5.6.2 二值奖励下组均值中心化的梯度枯竭](#user-content-s5-6-2)
+  - [5.6.3 过校准与过度自信](#user-content-s5-6-3)
+  - [5.6.4 On-policy vs Off-policy GRPO](#user-content-s5-6-4)
+- [5.7 偏差修正的取舍与争议](#user-content-s5-7)
+  - [5.7.1 "无偏"与"长度不变"的不可能性](#user-content-s5-7-1)
+  - [5.7.2 实践建议](#user-content-s5-7-2)
+- [5.8 本章小结与自测](#user-content-s5-8)
+  - [要点总结](#user-content-h167)
+  - [自测题](#user-content-h168)
+- [6.1 DAPO 的定位与整体思路](#user-content-s6-1)
+- [6.2 Clip-Higher：解耦上下裁剪阈值](#user-content-s6-2)
+  - [6.2.1 熵崩塌的定义与危害](#user-content-s6-2-1)
+  - [6.2.2 对称 clip 如何加速熵崩塌](#user-content-s6-2-2)
+  - [6.2.3 Clip-Higher 的解法](#user-content-s6-2-3)
+  - [6.2.4 为什么下界不一起放宽](#user-content-s6-2-4)
+  - [6.2.5 对诊断指标的影响](#user-content-s6-2-5)
+- [6.3 Dynamic Sampling：动态采样过滤无效 prompt](#user-content-s6-3)
+  - [6.3.1 动机：零梯度样本的算力浪费](#user-content-s6-3-1)
+  - [6.3.2 DAPO 的动态采样机制](#user-content-s6-3-2)
+  - [6.3.3 为什么这有效：隐式课程学习](#user-content-s6-3-3)
+  - [6.3.4 代价与注意点](#user-content-s6-3-4)
+  - [6.3.5 伪代码](#user-content-s6-3-5)
+- [6.4 Token-Level Policy Gradient Loss](#user-content-s6-4)
+  - [6.4.1 动机：序列内平均的长度偏差](#user-content-s6-4-1)
+  - [6.4.2 DAPO 的 token-level 聚合](#user-content-s6-4-2)
+  - [6.4.3 与 Dr.GRPO 的关系](#user-content-s6-4-3)
+  - [6.4.4 对 long-CoT 的关键意义](#user-content-s6-4-4)
+- [6.5 Overlong Reward Shaping：超长奖励塑形](#user-content-s6-5)
+  - [6.5.1 动机：截断带来的奖励噪声](#user-content-s6-5-1)
+  - [6.5.2 DAPO 的两部分解法](#user-content-s6-5-2)
+  - [6.5.3 软惩罚的数学动机](#user-content-s6-5-3)
+  - [6.5.4 堵住 reward hacking 路径](#user-content-s6-5-4)
+- [6.6 DAPO 移除 KL 项的决策](#user-content-s6-6)
+- [6.7 DAPO 完整目标函数与算法](#user-content-s6-7)
+  - [6.7.1 完整目标函数](#user-content-s6-7-1)
+  - [6.7.2 算法伪代码](#user-content-s6-7-2)
+  - [6.7.3 DAPO 相对 GRPO 的改动总结](#user-content-s6-7-3)
+- [6.8 DAPO 的工程系统与可复现性](#user-content-s6-8)
+- [6.9 本章小结与自测](#user-content-s6-9)
+  - [要点回顾](#user-content-h200)
+  - [自测题](#user-content-h201)
+- [7.1 变体爆炸的背景与分类框架](#user-content-s7-1)
+  - [7.1.1 为什么 GRPO 变体如此之多](#user-content-s7-1-1)
+  - [7.1.2 四组件分类框架](#user-content-s7-1-2)
+- [7.2 GSPO：序列级重要性比率的数学动机](#user-content-s7-2)
+  - [7.2.1 Token 级 IS 比率的三重问题](#user-content-s7-2-1)
+  - [7.2.2 GSPO 的序列级比率](#user-content-s7-2-2)
+  - [7.2.3 梯度分析：GSPO vs GRPO](#user-content-s7-2-3)
+  - [7.2.4 ε 的量级差异](#user-content-s7-2-4)
+  - [7.2.5 GSPO 的实践影响](#user-content-s7-2-5)
+- [7.3 CISPO：保留全部 Token 梯度](#user-content-s7-3)
+  - [7.3.1 Hard Clip 的信息丢弃问题](#user-content-s7-3-1)
+  - [7.3.2 CISPO 的解法：Detached IS 权重](#user-content-s7-3-2)
+  - [7.3.3 梯度对比：CISPO vs PPO/GRPO](#user-content-s7-3-3)
+  - [7.3.4 为什么这对长 CoT 重要](#user-content-s7-3-4)
+- [7.4 其他值得了解的变体](#user-content-s7-4)
+  - [7.4.1 RLOO](#user-content-s7-4-1)
+  - [7.4.2 Dr.GRPO](#user-content-s7-4-2)
+  - [7.4.3 GVPO](#user-content-s7-4-3)
+  - [7.4.4 BAPO](#user-content-s7-4-4)
+  - [7.4.5 SAPO](#user-content-s7-4-5)
+  - [7.4.6 长度偏差的后续工作](#user-content-s7-4-6)
+  - [7.4.7 关于变体数量的声明](#user-content-s7-4-7)
+- [7.5 谱系图与演化逻辑](#user-content-s7-5)
+  - [7.5.1 演化树](#user-content-s7-5-1)
+  - [7.5.2 时间线表格](#user-content-s7-5-2)
+- [7.6 选型建议](#user-content-s7-6)
+  - [7.6.1 决策路径](#user-content-s7-6-1)
+  - [7.6.2 横向对比大表](#user-content-s7-6-2)
+  - [7.6.3 务实建议](#user-content-s7-6-3)
+- [7.7 本章小结与自测](#user-content-s7-7)
+  - [要点回顾](#user-content-h233)
+  - [自测题](#user-content-h234)
+- [8.1 框架选型与上手路径](#user-content-s8-1)
+  - [8.1.1 主流框架对比](#user-content-s8-1-1)
+  - [8.1.2 TRL 最小可运行示例](#user-content-s8-1-2)
+- [8.2 从零实现 GRPO 的核心逻辑](#user-content-s8-2)
+  - [8.2.1 奖励函数：规则奖励与防 hacking](#user-content-s8-2-1)
+  - [8.2.2 Rollout 与组采样：old_logprob 的正确获取](#user-content-s8-2-2)
+  - [8.2.3 优势计算：严格按 prompt 分组](#user-content-s8-2-3)
+  - [8.2.4 将序列级优势广播到每个 token](#user-content-s8-2-4)
+  - [8.2.5 损失计算：比率、clip、k3 KL、聚合](#user-content-s8-2-5)
+  - [8.2.6 Mask 的正确处理](#user-content-s8-2-6)
+- [8.3 显存、并行与 Rollout 加速](#user-content-s8-3)
+  - [8.3.1 显存分解](#user-content-s8-3-1)
+  - [8.3.2 省显存的手段及其代价](#user-content-s8-3-2)
+  - [8.3.3 并行策略](#user-content-s8-3-3)
+  - [8.3.4 Rollout 与训练的耦合方式](#user-content-s8-3-4)
+- [8.4 训练诊断指标](#user-content-s8-4)
+  - [8.4.1 指标速查表](#user-content-s8-4-1)
+  - [8.4.2 GRPO 特有的诊断逻辑](#user-content-s8-4-2)
+  - [8.4.3 症状驱动的排查顺序清单](#user-content-s8-4-3)
+- [8.5 常见坑清单](#user-content-s8-5)
+- [8.6 学习资源与进阶路径](#user-content-s8-6)
+  - [8.6.1 论文清单（按推荐阅读顺序）](#user-content-s8-6-1)
+  - [8.6.2 代码库](#user-content-s8-6-2)
+  - [8.6.3 一条务实的学习路径](#user-content-s8-6-3)
+- [8.7 本章小结与全文档收尾](#user-content-s8-7)
+  - [学完这两份文档之后该做什么](#user-content-h261)
 
 </details>
 
@@ -474,12 +474,12 @@ GRPO 及其变体是一个**演进极快**的领域（2024–2026 年间新变�
 
 LLM 后训练中的奖励信号与经典 RL 有本质区别。在机器人控制、游戏等经典场景中，奖励通常在每一步都有定义（dense reward），或者至少在若干中间里程碑处给出（shaped reward）。但在 LLM 后训练中，**绝大多数情况下奖励只在最后一个 token 给出**，这被称为结果奖励（outcome reward）或稀疏奖励（sparse reward）。形式化地：
 
-$$
+```math
 r_t = \begin{cases}
 0, & t < |o| \\
 R(q, o), & t = |o|
 \end{cases}
-$$
+```
 
 其中 $`R(q, o)`$ 是对整条回答的质量评分，可以来自规则验证器（如数学题的答案校验）、奖励模型（reward model）或人类反馈。中间所有 token 的即时奖励均为零。
 
@@ -491,21 +491,21 @@ $$
 
 定义从时刻 $`t`$ 出发的回报（return / reward-to-go）为：
 
-$$
+```math
 G_t = \sum_{k=t}^{|o|} \gamma^{k-t} r_k
-$$
+```
 
 其中 $`\gamma \in [0, 1]`$ 是折扣因子（discount factor）。将上述稀疏奖励结构代入：当 $`t < |o|`$ 时，$`r_t = r_{t+1} = \cdots = r_{|o|-1} = 0`$，唯一非零项是 $`r_{|o|} = R(q, o)`$，因此：
 
-$$
+```math
 G_t = \gamma^{|o|-t} \cdot R(q, o), \quad \forall \, t \leq |o|
-$$
+```
 
 在实践中，LLM RL 通常取 $`\gamma = 1`$（理由见下一小节），此时上式进一步简化为：
 
-$$
+```math
 G_t = R(q, o), \quad \forall \, t \leq |o|
-$$
+```
 
 **这意味着：在同一条轨迹内，无论从哪个 token 位置 $`t`$ 出发，回报值都完全相同，都等于整条回答的最终奖励 $`R(q, o)`$。**
 
@@ -522,15 +522,15 @@ $$
 
 因此，LLM RL 实践中普遍取 $`\gamma = 1`$。此时 GAE 的递推公式（见 PPO 文档第 4 章）：
 
-$$
+```math
 \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t), \quad \hat{A}_t^{\text{GAE}} = \sum_{l=0}^{|o|-t} (\gamma \lambda)^l \delta_{t+l}
-$$
+```
 
 在 $`\gamma = 1`$ 且 $`r_t = 0`$（$`t < |o|`$）的条件下退化为：
 
-$$
+```math
 \delta_t = V(s_{t+1}) - V(s_t) \quad (t < |o|), \quad \delta_{|o|} = R(q,o) - V(s_{|o|})
-$$
+```
 
 GAE 变成了一系列相邻价值函数差分的加权和。如果 critic 拟合完美（$`V(s_t) = \mathbb{E}[R(q,o) \mid s_t]`$），这些差分之和恰好 telescoping 消去，$`\hat{A}_t^{\text{GAE}} = R(q,o) - V(s_0)`$，与直接蒙特卡洛估计一致。但如果 critic 有误差，这些误差会沿递推累积，反而引入额外的偏差和方差。**当 $`\gamma = 1`$ 且奖励集中在终点时，critic 对优势估计的"方差缩减"收益被其自身拟合误差所抵消，甚至可能适得其反。** 这从另一个角度削弱了 critic 在 LLM 场景下的必要性。
 
@@ -563,9 +563,9 @@ GRPO 去掉 critic 后，模型数从 4 降为 3。如果使用规则奖励（ru
 
 Critic 不是免费附赠的——它自身也需要训练。在 PPO 的每个更新周期中，critic 通过最小化价值函数的均方误差损失来更新参数 $`\phi`$：
 
-$$
+```math
 \mathcal{L}_{\text{critic}}(\phi) = \mathbb{E}_{(s_t, G_t)} \left[ \left( V_\phi(s_t) - G_t \right)^2 \right]
-$$
+```
 
 这带来两个问题：
 
@@ -606,17 +606,17 @@ PPO 在 LLM 尺度下的超参数敏感度远高于经典 RL：
 
 具体来说，对于同一个 prompt $`q`$，我们从当前策略 $`\pi_\theta`$ 采样 $`G`$ 个回答 $`\{o_1, o_2, \ldots, o_G\}`$，分别获得奖励 $`\{r_1, r_2, \ldots, r_G\}`$（其中 $`r_i = R(q, o_i)`$）。回忆状态价值函数的定义：
 
-$$
+```math
 V^\pi(s_0 = q) = \mathbb{E}_{o \sim \pi(\cdot \mid q)} [R(q, o)]
-$$
+```
 
 组均值 $`\bar{r} = \frac{1}{G} \sum_{i=1}^G r_i`$ 正是 $`V^\pi(q)`$ 的一个蒙特卡洛（Monte Carlo）估计量。根据大数定律，当 $`G \to \infty`$ 时 $`\bar{r} \to V^\pi(q)`$（几乎处处收敛）。对于有限的 $`G`$，$`\bar{r}`$ 是 $`V^\pi(q)`$ 的无偏估计（unbiased estimator），即 $`\mathbb{E}[\bar{r}] = V^\pi(q)`$。组内标准差 $`\sigma_r = \sqrt{\frac{1}{G} \sum_{i=1}^G (r_i - \bar{r})^2}`$ 则可用于归一化，消除不同 prompt 之间奖励尺度的差异。
 
 于是，第 $`i`$ 条回答的优势估计为：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \bar{r}}{\sigma_r}
-$$
+```
 
 这就是"组相对"（Group Relative）名称的由来：每条回答的优势是相对于同组其他回答的统计量而言的。
 
@@ -746,17 +746,17 @@ GRPO 的最大成功来自于它与 RLVR 范式的天然契合。RLVR 的核心�
 
 **事实 (a)：基线的无偏性。** 对于任意只依赖状态 $`s`$ 而不依赖动作 $`a`$ 的函数 $`b(s)`$，从策略梯度估计量中减去它不改变梯度的期望值。即：
 
-$$
+```math
 \mathbb{E}_{a \sim \pi_\theta(\cdot|s)}\left[\nabla_\theta \log \pi_\theta(a|s) \cdot b(s)\right] = b(s) \cdot \mathbb{E}_{a \sim \pi_\theta(\cdot|s)}\left[\nabla_\theta \log \pi_\theta(a|s)\right] = b(s) \cdot \mathbf{0} = \mathbf{0}
-$$
+```
 
 其中最后一步使用了似然比技巧（likelihood ratio trick）的核心结论 $`\mathbb{E}[\nabla_\theta \log \pi_\theta] = \mathbf{0}`$（见 PPO 文档第 1 章）。因此，$`\mathbb{E}[\nabla_\theta \log \pi_\theta(a|s) \cdot (G - b(s))] = \mathbb{E}[\nabla_\theta \log \pi_\theta(a|s) \cdot G]`$，减去基线不影响梯度期望的无偏性。
 
 **事实 (b)：最优基线的形式。** 使梯度估计方差最小的标量基线为：
 
-$$
+```math
 b^*(s) = \frac{\mathbb{E}\left[\|\nabla_\theta \log \pi_\theta(a|s)\|^2 \cdot G\right]}{\mathbb{E}\left[\|\nabla_\theta \log \pi_\theta(a|s)\|^2\right]}
-$$
+```
 
 这是被梯度范数平方加权的回报期望，而非简单的 $`\mathbb{E}[G]`$。实践中，由于 $`b^*(s)`$ 难以精确计算，通常用状态价值函数 $`V^\pi(s) = \mathbb{E}[G \mid s]`$ 作为近似替代。PPO 正是通过训练一个 critic 网络来拟合 $`V^\pi(s)`$，进而构造广义优势估计（GAE）。
 
@@ -786,17 +786,17 @@ $$
 
 在 LLM RL 的 MDP 框架中（见 PPO 文档第 1 章及本文档第 1 章），prompt $`q`$ 充当初始状态 $`s_0`$，语言模型的生成过程构成一条完整轨迹 $`o = (y_1, y_2, \ldots, y_T)`$，奖励 $`R(q, o)`$ 通常在序列末尾给出（outcome reward）。因此，状态价值函数的定义简化为：
 
-$$
+```math
 V^\pi(q) = \mathbb{E}_{o \sim \pi(\cdot|q)}[R(q, o)]
-$$
+```
 
 这里的关键观察是：因为整条回答 $`o`$ 是从策略 $`\pi(\cdot|q)`$ 一次性采样得到的完整对象，$`V^\pi(q)`$ 就是对"该 prompt 下回答质量的期望"的一个简洁表达。不需要像传统 RL 那样对每个中间状态分别估计价值。
 
 给定当前策略 $`\pi_\theta`$，我们可以从 $`\pi_\theta(\cdot|q)`$ 中独立采样 $`G`$ 个回答 $`\{o_1, o_2, \ldots, o_G\}`$，并构造 $`V^\pi(q)`$ 的蒙特卡洛估计量：
 
-$$
+```math
 \hat{V}_G(q) = \frac{1}{G} \sum_{i=1}^{G} R(q, o_i)
-$$
+```
 
 记 $`r_i = R(q, o_i)`$ 为第 $`i`$ 个样本的奖励，则 $`\hat{V}_G(q) = \frac{1}{G}\sum_{i=1}^G r_i`$。
 
@@ -808,7 +808,7 @@ $$
 
 **证明：**
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}[\hat{V}_G(q)] &= \mathbb{E}\left[\frac{1}{G} \sum_{i=1}^{G} r_i\right] \\
 &= \frac{1}{G} \sum_{i=1}^{G} \mathbb{E}[r_i] \quad \text{（期望的线性性）} \\
@@ -816,7 +816,7 @@ $$
 &= \frac{1}{G} \sum_{i=1}^{G} V^\pi(q) \\
 &= V^\pi(q)
 \end{aligned}
-$$
+```
 
 证毕。$`\square`$
 
@@ -826,15 +826,15 @@ $$
 
 由于 $`o_1, \ldots, o_G`$ 相互独立，$`\hat{V}_G`$ 的方差为：
 
-$$
+```math
 \text{Var}[\hat{V}_G(q)] = \text{Var}\left[\frac{1}{G}\sum_{i=1}^G r_i\right] = \frac{1}{G^2}\sum_{i=1}^G \text{Var}[r_i] = \frac{\sigma^2(q)}{G}
-$$
+```
 
 其中我们定义了核心量：
 
-$$
+```math
 \sigma^2(q) \triangleq \text{Var}_{o \sim \pi(\cdot|q)}[R(q, o)]
-$$
+```
 
 $`\sigma^2(q)`$ 是**同一 prompt 下回答质量的内在方差**。它是本章后续所有分析的基石。直觉上：
 
@@ -850,44 +850,44 @@ $`\sigma^2(q)`$ 是**同一 prompt 下回答质量的内在方差**。它是本�
 
 现在考虑用 $`\hat{V}_G(q)`$ 替代 $`V^\pi(q)`$ 后，梯度估计量的性质。定义优势估计量：
 
-$$
+```math
 \hat{A}_i = r_i - \hat{V}_G(q) = r_i - \frac{1}{G}\sum_{j=1}^G r_j
-$$
+```
 
 对应的梯度估计量为：
 
-$$
+```math
 \hat{g} = \frac{1}{G}\sum_{i=1}^G \nabla_\theta \log \pi_\theta(o_i|q) \cdot \hat{A}_i
-$$
+```
 
 虽然 $`\hat{V}_G`$ 本身是 $`V^\pi`$ 的无偏估计，但 **$`\hat{A}_i`$ 作为整体用于梯度估计时是有偏的**。原因在于 $`\hat{V}_G`$ 中包含了 $`r_i`$ 自身——基线与被评估样本之间存在自相关（self-inclusion）。
 
 为了看清这一点，将 $`\hat{A}_i`$ 展开：
 
-$$
+```math
 \hat{A}_i = r_i - \frac{1}{G}\sum_{j=1}^G r_j = r_i - \frac{r_i}{G} - \frac{1}{G}\sum_{j \neq i} r_j = \frac{G-1}{G} r_i - \frac{1}{G}\sum_{j \neq i} r_j
-$$
+```
 
 代入梯度估计量并取期望：
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}[\hat{g}] &= \frac{1}{G}\sum_{i=1}^G \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot \left(\frac{G-1}{G} r_i - \frac{1}{G}\sum_{j \neq i} r_j\right)\right] \\
 &= \frac{1}{G}\sum_{i=1}^G \left(\frac{G-1}{G} \mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i] - \frac{1}{G}\sum_{j \neq i} \mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q)] \cdot \mathbb{E}[r_j]\right)
 \end{aligned}
-$$
+```
 
 注意第二项中，由于 $`o_i`$ 与 $`o_j`$（$`j \neq i`$）独立，期望可以分解。又因 $`\mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q)] = \mathbf{0}`$，第二项整体为零。因此：
 
-$$
+```math
 \mathbb{E}[\hat{g}] = \frac{G-1}{G} \cdot \frac{1}{G}\sum_{i=1}^G \mathbb{E}[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i] = \frac{G-1}{G} \cdot \mathbb{E}[\nabla_\theta \log \pi_\theta(o|q) \cdot R(q,o)]
-$$
+```
 
 而真实的策略梯度为 $`\nabla_\theta J(\theta) = \mathbb{E}[\nabla_\theta \log \pi_\theta(o|q) \cdot R(q,o)]`$。因此：
 
-$$
+```math
 \mathbb{E}[\hat{g}] = \frac{G-1}{G} \cdot \nabla_\theta J(\theta)
-$$
+```
 
 **这表明全组均值基线导致的梯度估计存在一个 $`(G-1)/G`$ 的缩放偏差。** 我们将在 2.4 节详细讨论这个结果的深层含义。目前只需记住：自相关确实引入了偏差，但其形式是一个纯粹的常数缩放因子。
 
@@ -907,15 +907,15 @@ $$
 
 定义第 $`i`$ 个样本的留一法基线为：
 
-$$
+```math
 b_i^{\text{LOO}} = \frac{1}{G-1} \sum_{j \neq i} r_j
-$$
+```
 
 对应的优势估计量为：
 
-$$
+```math
 \hat{A}_i^{\text{LOO}} = r_i - b_i^{\text{LOO}} = r_i - \frac{1}{G-1}\sum_{j \neq i} r_j
-$$
+```
 
 <a id="s2-3-3"></a>
 
@@ -925,32 +925,32 @@ $$
 
 **证明：** 由期望的线性性，只需证明对每个 $`i`$：
 
-$$
+```math
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot \hat{A}_i^{\text{LOO}}\right] = \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot R(q, o_i)\right]
-$$
+```
 
 将 $`\hat{A}_i^{\text{LOO}} = r_i - b_i^{\text{LOO}}`$ 代入左边：
 
-$$
+```math
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot (r_i - b_i^{\text{LOO}})\right] = \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i\right] - \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot b_i^{\text{LOO}}\right]
-$$
+```
 
 关键在于第二项。注意 $`b_i^{\text{LOO}} = \frac{1}{G-1}\sum_{j \neq i} r_j`$ **只依赖于 $`\{o_j\}_{j \neq i}`$**，而 $`o_i`$ 与 $`\{o_j\}_{j \neq i}`$ 相互独立（因为它们是从 $`\pi(\cdot|q)`$ 中独立采样的）。因此：
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot b_i^{\text{LOO}}\right] &= \mathbb{E}_{\{o_j\}_{j \neq i}}\left[b_i^{\text{LOO}} \cdot \mathbb{E}_{o_i}\left[\nabla_\theta \log \pi_\theta(o_i|q) \mid \{o_j\}_{j \neq i}\right]\right] \\
 &= \mathbb{E}_{\{o_j\}_{j \neq i}}\left[b_i^{\text{LOO}} \cdot \mathbb{E}_{o_i}\left[\nabla_\theta \log \pi_\theta(o_i|q)\right]\right] \quad \text{（独立性）} \\
 &= \mathbb{E}_{\{o_j\}_{j \neq i}}\left[b_i^{\text{LOO}} \cdot \mathbf{0}\right] \quad \text{（似然比技巧）} \\
 &= \mathbf{0}
 \end{aligned}
-$$
+```
 
 因此：
 
-$$
+```math
 \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot \hat{A}_i^{\text{LOO}}\right] = \mathbb{E}\left[\nabla_\theta \log \pi_\theta(o_i|q) \cdot r_i\right]
-$$
+```
 
 对所有 $`i`$ 求平均即得 $`\mathbb{E}[\hat{g}^{\text{LOO}}] = \nabla_\theta J(\theta)`$。证毕。$`\square`$
 
@@ -962,23 +962,23 @@ $$
 
 $`b_i^{\text{LOO}}`$ 基于 $`G-1`$ 个独立样本的均值，因此其方差为：
 
-$$
+```math
 \text{Var}[b_i^{\text{LOO}}] = \frac{\sigma^2(q)}{G-1}
-$$
+```
 
 与之对比，全组均值基线的方差为 $`\sigma^2(q)/G`$。留一法基线的方差略大，比值为 $`G/(G-1)`$。当 $`G=8`$ 时，比值为 $`8/7 \approx 1.14`$；当 $`G=64`$ 时，比值为 $`64/63 \approx 1.016`$。这是为无偏性付出的代价——在实践中几乎可以忽略。
 
 更完整地看，留一法梯度估计量的方差涉及 $`\hat{A}_i^{\text{LOO}} = r_i - b_i^{\text{LOO}}`$ 的方差。由于 $`r_i`$ 与 $`b_i^{\text{LOO}}`$ 独立：
 
-$$
+```math
 \text{Var}[\hat{A}_i^{\text{LOO}}] = \text{Var}[r_i] + \text{Var}[b_i^{\text{LOO}}] = \sigma^2(q) + \frac{\sigma^2(q)}{G-1} = \sigma^2(q) \cdot \frac{G}{G-1}
-$$
+```
 
 相比之下，全组均值优势 $`\hat{A}_i = r_i - \hat{V}_G`$ 的方差为（利用 $`r_i`$ 与 $`\hat{V}_G`$ 的协方差 $`\text{Cov}(r_i, \hat{V}_G) = \sigma^2/G`$）：
 
-$$
+```math
 \text{Var}[\hat{A}_i] = \text{Var}[r_i] + \text{Var}[\hat{V}_G] - 2\text{Cov}(r_i, \hat{V}_G) = \sigma^2 + \frac{\sigma^2}{G} - \frac{2\sigma^2}{G} = \sigma^2 \cdot \frac{G-1}{G}
-$$
+```
 
 有趣的是，全组均值优势的方差反而**更小**（因子 $`(G-1)/G < G/(G-1)`$），但这正是以偏差为代价换来的。这构成了一个经典的偏差-方差权衡（bias-variance tradeoff）。
 
@@ -988,17 +988,17 @@ $$
 
 RLOO（REINFORCE Leave-One-Out）由 Ahmadian et al. (2024) 在论文《Back to Basics: Revisiting REINFORCE Style Optimization for Learning from Human Feedback in LLMs》(arXiv:2402.14740) 中提出。它的定义极为简洁：
 
-$$
+```math
 \nabla_\theta J_{\text{RLOO}}(\theta) \approx \frac{1}{G}\sum_{i=1}^G \nabla_\theta \log \pi_\theta(o_i|q) \cdot \left(r_i - \frac{1}{G-1}\sum_{j \neq i} r_j\right)
-$$
+```
 
 RLOO 本质上就是 **REINFORCE + 留一法基线**：没有重要性比率（importance ratio）、没有 clip 操作、没有 KL 散度正则项。它是 GRPO 的"极简近亲"。
 
 **RLOO 与 GRPO 的关系可以用一个公式概括：**
 
-$$
+```math
 \text{GRPO} \approx \text{RLOO} + \text{PPO 式 clip} + \text{KL 正则项} + \text{除以组内 std}
-$$
+```
 
 具体而言：
 - RLOO 提供无偏的优势估计基础；
@@ -1018,9 +1018,9 @@ $$
 
 这是一个很多资料混淆的关键点。**DeepSeekMath 原论文（Shao et al., 2024）中定义的 GRPO 使用的是全组均值基线，而非留一法基线。** 原论文的优势定义为：
 
-$$
+```math
 \hat{A}_i^{\text{GRPO}} = \frac{r_i - \text{mean}(\{r_1, \ldots, r_G\})}{\text{std}(\{r_1, \ldots, r_G\})}
-$$
+```
 
 其中 $`\text{mean}`$ 和 $`\text{std}`$ 均基于全部 $`G`$ 个样本计算。因此，严格来说，原始 GRPO 的优势估计是**有偏的**，偏差量级为 $`O(1/G)`$（如 2.2.4 节所示）。
 
@@ -1047,25 +1047,25 @@ $$
 
 **命题 2.3**（全组均值优势与留一法优势的精确关系）。在不除以 std 的前提下，全组均值基线得到的优势恰好是留一法优势的 $`(G-1)/G`$ 倍：
 
-$$
+```math
 r_i - \text{mean}(\{r_1, \ldots, r_G\}) = \frac{G-1}{G} \left(r_i - b_i^{\text{LOO}}\right)
-$$
+```
 
 **证明：** 首先写出全组均值与留一法均值的关系：
 
-$$
+```math
 \text{mean}(\{r_1, \ldots, r_G\}) = \frac{1}{G}\sum_{j=1}^G r_j = \frac{1}{G}\left(r_i + \sum_{j \neq i} r_j\right) = \frac{r_i}{G} + \frac{G-1}{G} \cdot \frac{1}{G-1}\sum_{j \neq i} r_j = \frac{r_i}{G} + \frac{G-1}{G} \cdot b_i^{\text{LOO}}
-$$
+```
 
 因此：
 
-$$
+```math
 \begin{aligned}
 r_i - \text{mean} &= r_i - \frac{r_i}{G} - \frac{G-1}{G} \cdot b_i^{\text{LOO}} \\
 &= \frac{G-1}{G} \cdot r_i - \frac{G-1}{G} \cdot b_i^{\text{LOO}} \\
 &= \frac{G-1}{G} \left(r_i - b_i^{\text{LOO}}\right)
 \end{aligned}
-$$
+```
 
 证毕。$`\square`$
 
@@ -1087,9 +1087,9 @@ $$
 
 GRPO 的优势定义为：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \text{mean}(\{r_j\})}{\text{std}(\{r_j\})}
-$$
+```
 
 从统计学角度看，这是对组内奖励进行**标准化（standardization）**：减去均值再除以标准差，使得不同 prompt 的优势分布近似统一到零均值、单位方差的尺度上。如果组内奖励近似正态分布，标准化后的优势约服从 $`\mathcal{N}(0, 1)`$。
 
@@ -1110,17 +1110,17 @@ $$
 
 **第一，破坏了常数缩放论证。** 如 2.4.4 节所述，在不除 std 时，全组均值基线与留一法基线只差一个常数因子。但 std 的计算也包含 $`r_i`$：
 
-$$
+```math
 \hat{\sigma} = \sqrt{\frac{1}{G}\sum_{j=1}^G (r_j - \bar{r})^2}
-$$
+```
 
 这使得 $`\hat{A}_i = (r_i - \bar{r})/\hat{\sigma}`$ 成为 $`r_i`$ 的非线性函数。命题 2.3 的简洁结论不再成立，偏差分析变得更加复杂。
 
 **第二，引入难度偏差（difficulty bias）。** 考虑 $`\hat{A}_i`$ 的量级与 $`\hat{\sigma}`$ 的关系：
 
-$$
+```math
 |\hat{A}_i| \propto \frac{|r_i - \bar{r}|}{\hat{\sigma}(q)}
-$$
+```
 
 当 $`\hat{\sigma}(q)`$ 很小时（即该 prompt 对模型来说太简单或太难，组内奖励几乎全同），$`\hat{A}_i`$ 会被放大；当 $`\hat{\sigma}(q)`$ 很大时（模型在该 prompt 上表现不稳定），$`\hat{A}_i`$ 会被压缩。这意味着：
 
@@ -1131,9 +1131,9 @@ $$
 
 **第三，数值不稳定性。** 当 $`\hat{\sigma}(q) \to 0`$ 时，$`\hat{A}_i`$ 趋向无穷大。实践中必须加入保护项：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \bar{r}}{\hat{\sigma} + \epsilon}
-$$
+```
 
 其中 $`\epsilon`$ 通常取 $`10^{-8}`$ 量级。但当 $`\hat{\sigma}`$ 本身就在 $`\epsilon`$ 量级时，这个保护并不能真正解决问题——它只是把爆炸的上限从无穷大变成了一个很大的有限值。
 
@@ -1197,9 +1197,9 @@ Critic 的核心优势在于它是状态相关的：对于序列中的每个前�
 
 在 PPO 文档第 4 章中，广义优势估计（Generalized Advantage Estimation, GAE）定义为：
 
-$$
+```math
 \hat{A}_t^{\text{GAE}} = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}
-$$
+```
 
 其中 TD 残差 $`\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)`$，$`\gamma`$ 是折扣因子，$`\lambda \in [0, 1]`$ 控制偏差-方差权衡。
 
@@ -1215,15 +1215,15 @@ $$
 
 在这些条件下考察 TD 残差。对于中间步 $`t < T`$：
 
-$$
+```math
 \delta_t = 0 + V(s_{t+1}) - V(s_t)
-$$
+```
 
 如果 $`V`$ 近似为常数（如 2.6.1 节论证的，在 outcome reward 下这是合理的），则 $`\delta_t \approx 0`$。所有信息集中在最后一步：
 
-$$
+```math
 \delta_T = R(q, o) - V(s_T)
-$$
+```
 
 因此 GAE 退化为：$`\hat{A}_t^{\text{GAE}} \approx (\gamma\lambda)^{T-t} \cdot \delta_T`$。当 $`\gamma = 1`$ 且 $`\lambda = 1`$ 时，所有时间步的优势都等于 $`\delta_T = R(q, o) - V(s_T)`$，即一个与 $`t`$ 无关的常数。
 
@@ -1261,9 +1261,9 @@ $$
 
 当 $`G`$ 过小时，std 的估计极不可靠。对于正态分布样本，样本标准差 $`\hat{\sigma}`$ 的相对标准误（coefficient of variation）约为：
 
-$$
+```math
 \frac{\text{SE}[\hat{\sigma}]}{\sigma} \approx \frac{1}{\sqrt{2(G-1)}}
-$$
+```
 
 当 $`G = 2`$ 时，相对标准误为 $`1/\sqrt{2} \approx 0.707`$，即 std 估计量的波动幅度与其真值同量级。当 $`G = 4`$ 时，相对标准误为 $`1/\sqrt{6} \approx 0.408`$，仍然很大。当 $`G = 8`$ 时，相对标准误为 $`1/\sqrt{14} \approx 0.267`$，开始进入可用范围。
 
@@ -1362,23 +1362,23 @@ $$
 
 DeepSeekMath（Shao et al., 2024, arXiv:2402.03300）给出的 GRPO 目标函数（原文 Eq. 4）为：
 
-$$
+```math
 J(\theta) = \mathbb{E}_{q \sim P(Q),\, \{o_i\}_{i=1}^G \sim \pi_{\theta_{old}}(\cdot|q)} \left[ \frac{1}{G} \sum_{i=1}^{G} \frac{1}{|o_i|} \sum_{t=1}^{|o_i|} \left( r_{i,t}(\theta)\,\hat{A}_{i,t} - \beta\, \mathbb{D}_{KL}\!\left[\pi_\theta(\cdot|q,o_{i,<t}) \,\|\, \pi_{ref}(\cdot|q,o_{i,<t})\right] \right) \right]
-$$
+```
 
 其中三个核心组件定义如下：
 
 **逐 token 重要性比率（per-token importance ratio）**：
 
-$$
+```math
 r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}
-$$
+```
 
 **组内归一化优势（group-normalized advantage）**：
 
-$$
+```math
 \hat{A}_{i,t} = \hat{A}_i = \frac{r_i - \text{mean}(\{r_j\}_{j=1}^G)}{\text{std}(\{r_j\}_{j=1}^G)}
-$$
+```
 
 **KL 散度**：$`\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]`$ 是在每个 token 位置 $`(i,t)`$ 上、对当前策略与参考模型之间的 KL 散度。
 
@@ -1409,9 +1409,9 @@ $$
 
 带 clip 的实用形式为：
 
-$$
+```math
 L^{GRPO}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\hat{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 其中 $`\text{clip}(x, 1-\varepsilon, 1+\varepsilon) = \max(1-\varepsilon, \min(1+\varepsilon, x))`$，$`\hat{D}_{KL,i,t}`$ 是 KL 散度的采样估计器（下一节详述）。取负号是因为优化框架通常最小化损失，而 $`J(\theta)`$ 是最大化目标。clip 的作用机制与 PPO 完全一致（见 PPO 文档第 6 章的六情形梯度分析），此处不再重复推导。
 
@@ -1425,9 +1425,9 @@ $$
 
 目标函数中的 $`\mathbb{D}_{KL}[\pi_\theta(\cdot|x) \| \pi_{ref}(\cdot|x)]`$（简写 $`x = (q, o_{i,<t})`$）定义为：
 
-$$
+```math
 \mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}] = \sum_{y \in \mathcal{V}} \pi_\theta(y|x) \log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}
-$$
+```
 
 这是对词表 $`\mathcal{V}`$ 求和的量。虽然原则上可以精确计算（遍历整个词表），但在每个 token 位置都做一次全词表求和开销不小（$`V`$ 通常为几万到几十万）。更重要的是，我们需要一个**能通过采样得到的、可微的、能正确反传梯度的估计器**。
 
@@ -1437,44 +1437,44 @@ $$
 
 DeepSeekMath 采用的是 Schulman 在其博客 "Approximating KL Divergence" 中提出的 k3 估计器。设 $`y \sim \pi_\theta(\cdot|x)`$ 为从当前策略采样的 token（实际上就是 rollout 中生成的 $`o_{i,t}`$），定义比率：
 
-$$
+```math
 r = \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}
-$$
+```
 
 则 k3 估计器为：
 
-$$
+```math
 \hat{D}_{KL}^{(k3)} = r - \log r - 1 = \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - \log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - 1
-$$
+```
 
 **无偏性证明**：
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\hat{D}_{KL}^{(k3)}\right] &= \mathbb{E}_{y \sim \pi_\theta}\!\left[\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - \log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - 1\right] \\
 &= \underbrace{\mathbb{E}_{y \sim \pi_\theta}\!\left[\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right]}_{(*)} - \underbrace{\mathbb{E}_{y \sim \pi_\theta}\!\left[\log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right]}_{(**)} - 1
 \end{aligned}
-$$
+```
 
 对第一项 $`(*)`$，利用重要性采样的基本恒等式：
 
-$$
+```math
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right] = \sum_{y \in \mathcal{V}} \pi_\theta(y|x) \cdot \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} = \sum_{y \in \mathcal{V}} \pi_{ref}(y|x) = 1
-$$
+```
 
 对第二项 $`(**)`$，展开对数比：
 
-$$
+```math
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right] = \mathbb{E}_{y \sim \pi_\theta}[\log \pi_{ref}(y|x) - \log \pi_\theta(y|x)] = -\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]
-$$
+```
 
 这里用到了 KL 散度的定义 $`\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}] = \mathbb{E}_{y \sim \pi_\theta}[\log \pi_\theta - \log \pi_{ref}]`$。
 
 代回原式：
 
-$$
+```math
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\hat{D}_{KL}^{(k3)}\right] = 1 - \left(-\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]\right) - 1 = \mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]
-$$
+```
 
 证毕。$`\blacksquare`$
 
@@ -1484,15 +1484,15 @@ $$
 
 令 $`u = \log r`$，则 $`r = e^u`$，于是：
 
-$$
+```math
 \hat{D}_{KL}^{(k3)} = e^u - u - 1
-$$
+```
 
 由指数函数的凸性，$`e^u \geq u + 1`$ 对所有实数 $`u`$ 成立（这是 $`e^u`$ 在 $`u=0`$ 处的切线不等式，当且仅当 $`u=0`$ 即 $`r=1`$ 即 $`\pi_\theta = \pi_{ref}`$ 时取等号）。因此：
 
-$$
+```math
 e^u - u - 1 \geq 0 \quad \forall\, u \in \mathbb{R}
-$$
+```
 
 即 $`\hat{D}_{KL}^{(k3)} \geq 0`$ 恒成立。$`\blacksquare`$
 
@@ -1520,21 +1520,21 @@ Schulman 博客中还讨论了另外两种估计器，一并列出以供比较�
 
 k3 估计器中 $`r = \pi_{ref}(y|x)/\pi_\theta(y|x)`$ 显式依赖于 $`\theta`$（因为 $`y`$ 是从 $`\pi_\theta`$ 采样的固定 token，$`\pi_{ref}(y|x)`$ 是常数，但 $`\pi_\theta(y|x)`$ 随 $`\theta`$ 变化）。对 $`\theta`$ 求梯度：
 
-$$
+```math
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \nabla_\theta (r - \log r - 1) = \left(1 - \frac{1}{r}\right) \nabla_\theta r
-$$
+```
 
 由于 $`r = \pi_{ref}/\pi_\theta`$，故 $`\nabla_\theta r = -\frac{\pi_{ref}}{\pi_\theta^2} \nabla_\theta \pi_\theta = -r \cdot \nabla_\theta \log \pi_\theta`$。代入得：
 
-$$
+```math
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \left(1 - \frac{1}{r}\right)(-r) \nabla_\theta \log \pi_\theta(y|x) = (1 - r) \nabla_\theta \log \pi_\theta(y|x)
-$$
+```
 
 即：
 
-$$
+```math
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \left(1 - \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right) \nabla_\theta \log \pi_\theta(y|x)
-$$
+```
 
 这个梯度形式的直觉是：当 $`\pi_\theta(y|x) > \pi_{ref}(y|x)`$（即 $`r < 1`$）时，括号项为正，梯度方向与 $`\nabla_\theta \log \pi_\theta`$ 一致，但由于 KL 项前面有负号 $`-\beta`$，实际效果是**减小**该 token 的概率（把策略拉回参考模型）；反之亦然。
 
@@ -1556,9 +1556,9 @@ $$
 
 **记忆性总结**：
 
-$$
+```math
 \text{GRPO} = \text{PPO} - \text{critic} - \text{GAE} + \text{组内基线} + \text{显式 KL 项}
-$$
+```
 
 每一项的数学后果：去掉 critic 消除了价值估计偏差但丧失了 token 级信号；去掉 GAE 使优势变为序列级常量；组内基线以 $`G`$ 倍采样换取无偏的 $`V^\pi`$ 估计（方差 $`\sigma^2/G`$，见第 2 章）；显式 KL 项提供了比奖励塑形更精确的约束控制。
 
@@ -1585,8 +1585,12 @@ $$
 3. **计算奖励**：对每个回答计算标量奖励 $`r_{b,i} = R(q_b, o_{b,i})`$。
 
 4. **计算组内优势**：对每个 prompt $`b`$，分别计算：
-   $$\bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)$$
-   $$\hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}$$
+   ```math
+   \bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)
+   ```
+   ```math
+   \hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}
+   ```
    其中 $`\epsilon_{num}`$ 是防止除零的小常数（如 $`10^{-8}`$）。若 $`\sigma_b = 0`$（全组奖励相同），则 $`\hat{A}_{b,i} = 0`$，该 prompt 在本 step 无梯度贡献。
 
 5. **冻结旧策略日志概率**：记 $`\log \pi_{\theta_{old}}(o_{b,i,t}|\cdot)`$ 为步骤 2 中记录的值。此后在内层循环中不再更新此值。
@@ -1623,15 +1627,15 @@ $$
 
 **当 $`K=1`$ 时，GRPO 严格来说是 on-policy 的**。此时 $`\theta_{old} = \theta`$（因为内层只跑一个 epoch，没有之前的更新使 $`\theta`$ 偏离 $`\theta_{old}`$），因此：
 
-$$
+```math
 r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t}|\cdot)}{\pi_{\theta_{old}}(o_{i,t}|\cdot)} = 1 \quad \forall\, i, t
-$$
+```
 
 比率恒为 1，$`\text{clip}(1, 1-\varepsilon, 1+\varepsilon) = 1`$，$`\min(1 \cdot \hat{A}_i, 1 \cdot \hat{A}_i) = \hat{A}_i`$。**clip 机制完全不生效**。此时 GRPO 退化为：
 
-$$
+```math
 L^{GRPO}|_{K=1} = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\hat{A}_i - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 这就是「带组内基线的 REINFORCE + KL 惩罚」。只有当 $`K > 1`$（或因异步/延迟更新导致 $`\theta_{old} \neq \theta`$）时，比率才会偏离 1，clip 才开始发挥限制更新幅度的作用。
 
@@ -1707,21 +1711,21 @@ GRPO 并非免费午餐：它把显存开销转成了**推理时间开销**。$`
 
 设 $`G=4`$，某 prompt 的四个回答奖励为 $`r = [1, 0, 1, 0]`$（两个正确、两个错误）。
 
-$$
+```math
 \bar{r} = \frac{1+0+1+0}{4} = 0.5
-$$
+```
 
 使用总体标准差：
 
-$$
+```math
 \sigma = \sqrt{\frac{(1-0.5)^2 + (0-0.5)^2 + (1-0.5)^2 + (0-0.5)^2}{4}} = \sqrt{\frac{0.25 \times 4}{4}} = 0.5
-$$
+```
 
 归一化优势：
 
-$$
+```math
 \hat{A} = \left[\frac{1-0.5}{0.5},\; \frac{0-0.5}{0.5},\; \frac{1-0.5}{0.5},\; \frac{0-0.5}{0.5}\right] = [1, -1, 1, -1]
-$$
+```
 
 **解读**：正确的回答得到 $`+1`$ 的优势（增大其每个 token 的概率），错误的得到 $`-1`$（减小概率）。关键在于：**同一条回答里的所有 token 得到完全相同的信号**。如果某个错误回答的前半部分其实写得很好、只是最后一步推理出错，那些好的 token 仍然收到 $`-1`$ 的信号——这就是信用分配缺失的直观体现（承接第 2 章 2.7 节的讨论）。
 
@@ -1739,15 +1743,15 @@ $$
 
 设 $`r = [1, 1, 1, 0]`$。则：
 
-$$
+```math
 \bar{r} = \frac{3}{4} = 0.75, \quad \sigma = \sqrt{\frac{3 \times (1-0.75)^2 + (0-0.75)^2}{4}} = \sqrt{\frac{3 \times 0.0625 + 0.5625}{4}} = \sqrt{\frac{0.75}{4}} = \frac{\sqrt{3}}{4} \approx 0.433
-$$
+```
 
 归一化优势：
 
-$$
+```math
 \hat{A} = \left[\frac{0.25}{0.433},\; \frac{0.25}{0.433},\; \frac{0.25}{0.433},\; \frac{-0.75}{0.433}\right] \approx [0.577,\; 0.577,\; 0.577,\; -1.732]
-$$
+```
 
 **关键观察**：那一个错误回答受到的惩罚（$`-1.732`$）远大于每个正确回答得到的奖励（$`+0.577`$），绝对值之比恰好为 $`3:1`$。这不是巧合，而是组内归一化的数学必然：优势之和必须为零（$`\sum_i \hat{A}_i = 0`$），所以当多数样本优于少数样本时，少数样本必须承受更大的负信号来平衡。
 
@@ -1827,15 +1831,15 @@ GRPO 去掉了 critic（见第 1 章）。取而代之的是对同一 prompt $`q
 
 奖励模型是一个参数化的神经网络 $`R_\phi(q, o)`$，其训练数据来自人类偏好标注。给定同一个 prompt $`q`$ 和两个回答 $`o_w`$（preferred）、$`o_l`$（dispreferred），Bradley-Terry 偏好模型假设：
 
-$$
+```math
 P(o_w \succ o_l \mid q) = \sigma\big(R_\phi(q, o_w) - R_\phi(q, o_l)\big),
-$$
+```
 
 其中 $`\sigma(x) = 1/(1+e^{-x})`$ 是 logistic 函数。RM 的训练损失为负对数似然：
 
-$$
+```math
 \mathcal{L}_{\text{RM}}(\phi) = -\mathbb{E}_{(q, o_w, o_l) \sim \mathcal{D}} \left[ \log \sigma\big(R_\phi(q, o_w) - R_\phi(q, o_l)\big) \right].
-$$
+```
 
 RM 的关键性质：
 - **输出连续标量**，可对任意 $`(q, o)`$ 打分。
@@ -1849,9 +1853,9 @@ RM 的关键性质：
 
 规则奖励由确定性程序判定，不依赖任何学习的模型。其一般形式为：
 
-$$
+```math
 R(q, o) = f\big(\text{extract}(o),\; y^*\big),
-$$
+```
 
 其中：
 - $`\text{extract}(\cdot)`$ 是从模型回答中抽取答案的解析函数，例如从 `\boxed{}` 中提取内容、从代码块中提取函数返回值。
@@ -1934,15 +1938,15 @@ DeepSeek-R1 技术报告（arXiv:2501.12948）是 RLVR 范式的里程碑。其�
 
 Outcome reward 只在回答结束时给出一个分数：
 
-$$
+```math
 r_t = \begin{cases} 0 & t < |o|, \\ R(q, o) & t = |o|. \end{cases}
-$$
+```
 
 承接第 1 章的分析，在 outcome reward 下，reward-to-go 对所有时间步 $`t`$ 相同（因为折扣因子 $`\gamma=1`$ 且中间奖励为零），故 GRPO 的优势不随时间变化：
 
-$$
+```math
 \hat{A}_{i,t} = \hat{A}_i = \frac{r_i - \bar{r}}{\hat{\sigma}}, \quad \forall\, t.
-$$
+```
 
 **优点**：
 - Verifier 实现简单，只需判定最终答案。
@@ -1955,15 +1959,15 @@ $$
 
 考虑策略梯度的形式（忽略 clip 和 KL，聚焦信号结构）：
 
-$$
+```math
 \nabla_\theta J \propto \hat{A}_i \sum_{t=1}^{L} \nabla_\theta \log \pi_\theta(o_t \mid q, o_{<t}).
-$$
+```
 
 这个求和中，只有 $`k`$ 项对应真正的"有用方向"（调整关键决策的概率），其余 $`L-k`$ 项是噪声（它们在期望意义下与任务无关，但方差非零）。作为一个启发式的量级估计（heuristic scaling argument，非严格定理），有效信号与总噪声的信噪比约为：
 
-$$
+```math
 \text{SNR} \sim \frac{k}{L}.
-$$
+```
 
 当 CoT 很长时（$`L \gg k`$），信噪比极低，梯度估计的方差很大，训练效率急剧下降。这解释了为什么长 CoT 训练特别困难：不是因为模型"学不会"，而是因为 outcome reward 下的信用分配粒度太粗，有效信号被大量无关 token 稀释了。
 
@@ -1973,9 +1977,9 @@ $$
 
 Process reward 对推理的每一步或每个片段给分。形式化为：
 
-$$
+```math
 R(q, o) = \sum_{j=1}^{M} w_j \cdot r_j,
-$$
+```
 
 其中 $`j`$ 索引推理步骤（step），$`r_j`$ 是第 $`j`$ 步的得分，$`w_j`$ 是权重（常取 1）。实现方式有两种：
 - **Process Reward Model (PRM)**：训练一个专门的模型对每步打分。
@@ -2004,9 +2008,9 @@ $$
 
 设真实目标是最大化效用 $`U(o)`$，但我们优化的代理目标是奖励 $`R(q, o)`$。定义两者之间的 gap：
 
-$$
+```math
 \Delta(\theta) = \mathbb{E}_{o \sim \pi_\theta(\cdot|q)}[R(q, o)] - \mathbb{E}_{o \sim \pi_\theta(\cdot|q)}[U(o)].
-$$
+```
 
 Reward hacking 指的是：随着优化推进，$`\mathbb{E}[R]`$ 持续上升，但 $`\mathbb{E}[U]`$ 停滞甚至下降，即 $`\Delta(\theta)`$ 被优化压力主动放大。这是 Goodhart's Law 的数学表述：一旦一个度量成为优化目标，它就不再是好度量。
 
@@ -2057,17 +2061,17 @@ RLVR 中最常见的奖励是二值的：$`r \in \{0, 1\}`$。设某个 prompt $
 
 当 $`G`$ 足够大时，组内均值和标准差的期望为：
 
-$$
+```math
 \mathbb{E}[\bar{r}] = p, \quad \mathbb{E}[\hat{\sigma}] \approx \sqrt{p(1-p)}.
-$$
+```
 
 这是因为 $`G`$ 次独立采样的奖励服从二项分布 $`\text{Bin}(G, p)`$，其标准差为 $`\sqrt{Gp(1-p)}`$，除以 $`G`$ 后得到样本均值的标准差；而样本标准差 $`\hat{\sigma}`$ 的期望在 $`G`$ 较大时趋近于总体标准差 $`\sqrt{p(1-p)}`$。
 
 于是优势的典型量级为：
 
-$$
+```math
 \hat{A}_i \approx \frac{r_i - p}{\sqrt{p(1-p)}}.
-$$
+```
 
 <a id="s4-6-2"></a>
 
@@ -2113,13 +2117,13 @@ $$
 
 GRPO 的优势定义为 $`\hat{A}_i = (r_i - \bar{r}) / \hat{\sigma}`$。考虑对奖励做仿射变换 $`r'_i = a r_i + b`$（$`a > 0`$），则：
 
-$$
+```math
 \bar{r}' = a\bar{r} + b, \quad \hat{\sigma}' = a\hat{\sigma},
-$$
+```
 
-$$
+```math
 \hat{A}'_i = \frac{r'_i - \bar{r}'}{\hat{\sigma}'} = \frac{a r_i + b - (a\bar{r} + b)}{a\hat{\sigma}} = \frac{a(r_i - \bar{r})}{a\hat{\sigma}} = \hat{A}_i.
-$$
+```
 
 **结论：GRPO 的优势对奖励的仿射变换不变。** 这意味着奖励的绝对尺度和偏移量不影响梯度方向（在不考虑 KL 项的前提下）。
 
@@ -2131,17 +2135,17 @@ $$
 
 一旦引入 KL 惩罚项 $`\beta \cdot D_{\text{KL}}[\pi_\theta \| \pi_{\text{ref}}]`$，情况发生变化。KL 散度有固定的绝对尺度（单位为 nat 或 bit），不受奖励变换的影响。当奖励从 $`r`$ 变为 $`ar+b`$ 时，目标函数变为：
 
-$$
+```math
 J'(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(r'_{i,t}(\theta)\,\hat{A}'_i - \beta \cdot D_{\text{KL}}\right)\right] = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(r_{i,t}(\theta)\,\hat{A}_i - \frac{\beta}{a} \cdot D_{\text{KL}}\right)\right],
-$$
+```
 
 其中我们利用了 $`\hat{A}'_i = \hat{A}_i`$ 以及 $`r'_{i,t}(\theta) = a \cdot r_{i,t}(\theta)`$（比率项也乘以 $`a`$，但与 $`\hat{A}'_i`$ 相乘后 $`a`$ 被抵消……等等，这里需要更仔细）。
 
 实际上，回顾第 3 章的目标函数：
 
-$$
+```math
 J(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \left(\min\big(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}(r_{i,t}(\theta), 1-\epsilon, 1+\epsilon)\,\hat{A}_i\big) - \beta \cdot D_{\text{KL}}\right)\right].
-$$
+```
 
 由于 $`\hat{A}_i`$ 尺度不变，clip 内的两项都正比于 $`\hat{A}_i`$，所以整个奖励项确实尺度不变。但 KL 项不变，因此**奖励尺度变化等价于改变 $`\beta`$ 的有效值**。奖励放大 $`a`$ 倍等价于 $`\beta`$ 缩小 $`a`$ 倍。
 
@@ -2155,9 +2159,9 @@ $$
 
 更精细的做法是对每个分量分别做组内归一化再加权：
 
-$$
+```math
 \hat{A}_i = \sum_k w_k \cdot \frac{R_k(o_i) - \overline{R_k}}{\hat{\sigma}_k}.
-$$
+```
 
 这种方式确保每个分量的贡献不受其他分量尺度的影响，但引入了额外的计算开销和超参（每个分量的归一化统计量）。这种变体在第 7 章讨论序列级方法时会进一步涉及。
 
@@ -2258,17 +2262,17 @@ $$
 
 回顾第 3 章给出的带 clip 的 GRPO 实用形式（Eq. 68 的负损失版本）：
 
-$$
+```math
 L^{\text{GRPO}}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\hat{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 其中 $`r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}|q,o_{i,<t})`$ 为逐 token 重要性比率，$`\hat{A}_i = (r_i - \text{mean})/\text{std}`$ 为组内归一化优势。
 
 本节暂时忽略 KL 项和 clip 机制（它们不影响长度偏差的分析），聚焦于替代目标部分。对于第 $`i`$ 个回答，其对损失的贡献为：
 
-$$
+```math
 L_i(\theta) = -\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i
-$$
+```
 
 <a id="s5-2-2"></a>
 
@@ -2276,17 +2280,17 @@ $$
 
 对 $`L_i(\theta)`$ 求关于 $`\theta`$ 的梯度。在 $`K=1`$（单 epoch 更新）、$`r_{i,t} \approx 1`$ 的近似下（承接第 3 章 §3.6 的分析），有：
 
-$$
+```math
 \nabla_\theta L_i(\theta) \approx -\frac{\hat{A}_i}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} | q, o_{i,<t})
-$$
+```
 
 这个表达式的结构非常清晰：**整个回答的梯度方向由 $`\sum_t \nabla_\theta \log \pi_\theta`$ 决定（这是标准的 REINFORCE 梯度方向），但其幅度被因子 $`\hat{A}_i / |o_i|`$ 所缩放。**
 
 关键观察：**同一个优势值 $`\hat{A}_i`$，作用在不同长度的回答上时，每个 token 分到的梯度权重是 $`\hat{A}_i / |o_i|`$。** 设同一 prompt 下有两个回答 $`o_a`$ 和 $`o_b`$，具有相同的优势值 $`\hat{A}`$，但 $`|o_a| < |o_b|`$，则：
 
-$$
+```math
 \frac{|\hat{A}|}{|o_a|} > \frac{|\hat{A}|}{|o_b|}
-$$
+```
 
 即短回答的每个 token 获得更大的梯度更新幅度。
 
@@ -2319,21 +2323,21 @@ $$
 
 修正方案极其简单：**去掉序列内的 $`(1/|o_i|)`$ 归一化**，改用全局常数归一化。具体而言，将目标函数中的
 
-$$
+```math
 \frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} (\cdots)
-$$
+```
 
 替换为
 
-$$
+```math
 \frac{1}{G}\sum_{i=1}^{G}\frac{1}{L_{\max}}\sum_{t=1}^{|o_i|} (\cdots)
-$$
+```
 
 其中 $`L_{\max}`$ 是一个全局常数（如最大生成长度或该 batch 的总 token 数）。等价地，也可以直接写成对所有 response token 取平均的形式：
 
-$$
+```math
 \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o_i|} (\cdots)
-$$
+```
 
 **修正后长度偏差消失的数学原因**：每个 token 的梯度权重变为 $`\hat{A}_i / L_{\max}`$（或 $`\hat{A}_i / \sum_j |o_j|`$），不再依赖其所属回答的长度 $`|o_i|`$。无论回答长短，同一优势值下的每个 token 获得相同尺度的梯度更新。
 
@@ -2370,9 +2374,9 @@ loss_unbiased = masked_mean(ppo_loss, response_mask, dim=None).mean()
 
 GRPO 的优势定义为：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \text{mean}(\{r_j\}_{j=1}^G)}{\text{std}(\{r_j\}_{j=1}^G)}
-$$
+```
 
 其中 $`\text{mean}`$ 和 $`\text{std}`$ 都是对同一 prompt $`q`$ 下 $`G`$ 个回答的奖励计算的。记 prompt $`q`$ 的组内奖励标准差为 $`\hat{\sigma}(q) = \text{std}(\{r_j\}_{j=1}^G)`$。
 
@@ -2392,21 +2396,21 @@ $$
 
 考虑二值奖励 $`r_i \in \{0, 1\}`$。设组内 $`G`$ 个回答中有 $`k`$ 个正确（$`r_i=1`$）、$`G-k`$ 个错误（$`r_i=0`$）。则：
 
-$$
+```math
 \text{mean} = \frac{k}{G}, \quad \text{std} = \sqrt{\frac{k}{G}\left(1 - \frac{k}{G}\right)}
-$$
+```
 
 这里使用的是总体标准差（population std）。对于一个正确的回答（$`r_i = 1`$），其优势为：
 
-$$
+```math
 \hat{A}_{\text{correct}} = \frac{1 - k/G}{\sqrt{(k/G)(1 - k/G)}} = \sqrt{\frac{1 - k/G}{k/G}}
-$$
+```
 
 类似地，对于一个错误的回答（$`r_i = 0`$）：
 
-$$
+```math
 \hat{A}_{\text{incorrect}} = \frac{0 - k/G}{\sqrt{(k/G)(1 - k/G)}} = -\sqrt{\frac{k/G}{1 - k/G}}
-$$
+```
 
 下表给出了不同 $`k/G`$ 值时的 std 与正确答案优势量级：
 
@@ -2431,9 +2435,9 @@ $$
 
 修正方案同样简单：**去掉组内的 $`(1/\text{std})`$ 归一化**，只用减均值的优势：
 
-$$
+```math
 \tilde{A}_i = r_i - \text{mean}(\{r_j\}_{j=1}^G)
-$$
+```
 
 去掉后，各 prompt 的优势量级回归到奖励本身的自然尺度。在二值奖励下，$`\tilde{A}_{\text{correct}} = 1 - k/G`$，$`\tilde{A}_{\text{incorrect}} = -k/G`$，其绝对值不超过 1，不再有边缘难度被放大的问题。
 
@@ -2461,17 +2465,17 @@ $$
 
 **① Sequence-mean-then-batch-mean（GRPO 原式）**：
 
-$$
+```math
 L_{\text{seq-mean}} = \frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \ell_{i,t}
-$$
+```
 
 先对每个回答内部按 $`|o_i|`$ 取平均，再对 $`G`$ 个回答取平均。**有长度偏差**，如 §5.2 所证。
 
 **② Token-mean（全 batch 所有 token 直接平均）**：
 
-$$
+```math
 L_{\text{token-mean}} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o_i|} \ell_{i,t}
-$$
+```
 
 对整个 batch 的所有 response token 直接取平均，除以总 token 数。**无长度偏差**，Dr.GRPO 主张的方式。
 
@@ -2518,15 +2522,15 @@ VL-Norm 等后续工作对 loss 聚合方式进行了进一步研究，探讨了
 
 修正后的目标函数为：
 
-$$
+```math
 L^{\text{Dr.GRPO}}(\theta) = -\frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\tilde{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\tilde{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 其中优势简化为：
 
-$$
+```math
 \tilde{A}_i = r_i - \text{mean}(\{r_j\}_{j=1}^G)
-$$
+```
 
 注意 Dr.GRPO 论文在其实验中设 $`\beta = 0`$（去掉 KL 项），理由是 RLVR 使用规则验证器作为奖励，不存在奖励模型的分布偏移问题，因此不需要 KL 约束来防止策略偏离参考模型。但这不是 Dr.GRPO 修正的核心部分——KL 项的取舍是独立的设计决策，与偏差修正正交。在实际使用中，是否保留 KL 取决于具体任务设定。
 
@@ -2680,9 +2684,9 @@ DAPO（Decoupled Clip and Dynamic sAmpling Policy Optimization，解耦裁剪与
 
 承接 PPO 文档第 6 章，策略熵 $`H(\pi_\theta)`$ 是衡量探索性的核心指标。对于状态 $`s`$ 下的离散动作空间 $`\mathcal{V}`$：
 
-$$
+```math
 H(\pi_\theta(\cdot|s)) = -\sum_{a \in \mathcal{V}} \pi_\theta(a|s) \log \pi_\theta(a|s).
-$$
+```
 
 当 $`\pi_\theta(\cdot|s)`$ 趋近 one-hot 分布（即某个动作的概率趋近 1，其余趋近 0）时，$`H \to 0`$。**熵崩塌（entropy collapse）** 指的就是训练过程中策略熵过快下降到极低水平的现象。其危害在于：
 
@@ -2698,9 +2702,9 @@ $$
 
 PPO-Clip 和标准 GRPO 均使用对称裁剪阈值 $`\varepsilon_{low} = \varepsilon_{high} = \varepsilon`$（常用 $`\varepsilon = 0.2`$），即：
 
-$$
+```math
 \text{clip}(r_t, 1-\varepsilon, 1+\varepsilon) = \max(1-\varepsilon, \min(1+\varepsilon, r_t)).
-$$
+```
 
 承接 PPO 文档第 6 章的六情形分析，当 $`\hat{A} > 0`$ 且 $`r_t > 1+\varepsilon`$ 时，$`\min`$ 操作选择被裁剪的分支，梯度为零——策略不再继续增大该 token 的概率。这个机制在防止策略更新过大方面功不可没，但它对**低概率好 token** 产生了系统性的压制效应。推理链条如下：
 
@@ -2717,17 +2721,17 @@ $$
 
 DAPO 将上下裁剪阈值解耦（Decoupled Clip），定义非对称裁剪算子：
 
-$$
+```math
 \text{clip}_{asym}(r_t, 1-\varepsilon_{low}, 1+\varepsilon_{high}) = \max(1-\varepsilon_{low}, \min(1+\varepsilon_{high}, r_t)),
-$$
+```
 
 其中 $`\varepsilon_{high} > \varepsilon_{low}`$。DAPO 的典型取值为 $`\varepsilon_{low} = 0.2`$，$`\varepsilon_{high} = 0.28`$。
 
 修改后的单 token 目标为：
 
-$$
+```math
 \ell_{i,t}^{clip-higher} = \min\!\left(r_{i,t}\,\hat{A}_i,\; \text{clip}_{asym}(r_{i,t}, 1-\varepsilon_{low}, 1+\varepsilon_{high})\,\hat{A}_i\right).
-$$
+```
 
 用 PPO 文档六情形的语言重新分析：
 
@@ -2774,9 +2778,9 @@ $$
 
 第 4 章给出了二值奖励下全同奖励概率的精确表达式：
 
-$$
+```math
 P(\text{全同}) = p^G + (1-p)^G,
-$$
+```
 
 其中 $`p`$ 是模型在该 prompt 上的正确率。当 $`p \to 0`$ 或 $`p \to 1`$ 时，$`P(\text{全同}) \to 1`$。在训练初期（$`p`$ 普遍较低）和训练后期（简单题 $`p \to 1`$），大量 prompt 的全同概率很高，意味着相当比例的算力被浪费在零梯度样本上。
 
@@ -2794,9 +2798,9 @@ DAPO 的解法是**过采样（over-sample）并过滤**。具体流程：
 
 过滤条件的数学表达为：
 
-$$
+```math
 \mathcal{B}_{valid} = \left\{ j : 0 < \frac{1}{G}\sum_{i=1}^G r_{j,i} < 1 \right\}, \quad |\mathcal{B}_{valid}| = N_{batch}.
-$$
+```
 
 <a id="s6-3-3"></a>
 
@@ -2857,9 +2861,9 @@ def dynamic_sampling(prompt_pool, model, G, N_batch):
 
 承接第 5 章的结论，GRPO 原式对每个回答先做序列内平均 $`(1/|o_i|)\sum_t`$，再对组内做平均 $`(1/G)\sum_i`$：
 
-$$
+```math
 L^{GRPO} = \frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \ell_{i,t},
-$$
+```
 
 其中 $`\ell_{i,t}`$ 是 token $`(i,t)`$ 的 clip 损失（含 KL 项或不包含）。在这个双层平均结构下，每条回答无论长短，对总损失的贡献权重都是 $`1/G`$。但长回答的损失被分摊到了更多 token 上，每个 token 获得的梯度幅度与 $`1/|o_i|`$ 成正比。
 
@@ -2871,9 +2875,9 @@ $$
 
 DAPO 将损失聚合方式改为对整个 batch 的所有 token 直接平均：
 
-$$
+```math
 L^{DAPO-token} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^G \sum_{t=1}^{|o_i|} \ell_{i,t}.
-$$
+```
 
 两种形式的本质区别在于归一化因子：
 
@@ -2921,27 +2925,27 @@ DAPO 的超长奖励塑形包含两个互补的组件：
 
 **① Overlong Filtering（超长过滤）**：对被截断的回答（$`|o_i| = L_{max}`$），其损失不参与梯度计算。形式上，引入掩码 $`m_i`$：
 
-$$
+```math
 m_i = \begin{cases} 0 & \text{if } |o_i| = L_{max} \quad (\text{被截断}) \\ 1 & \text{otherwise} \end{cases}
-$$
+```
 
 在 token-level loss 中，只有 $`m_i = 1`$ 的回答参与聚合。这直接消除了"因截断而误判"的噪声源。注意这与动态采样不同：动态采样过滤的是全对/全错的 prompt；超长过滤针对的是单个被截断的回答，即使同一 prompt 的其他回答未被截断且有效。
 
 **② Soft Overlong Punishment（软超长惩罚）**：在硬上限之前设置一个缓冲区 $`[L_{max} - L_{cache}, L_{max}]`$，在此区间内施加线性递增的长度惩罚：
 
-$$
+```math
 R_{length}(o) = \begin{cases} 
 0 & |o| \le L_{max} - L_{cache} \\
 \displaystyle\frac{(L_{max} - L_{cache}) - |o|}{L_{cache}} & L_{max} - L_{cache} < |o| \le L_{max} \\
 -1 & |o| > L_{max}
 \end{cases}
-$$
+```
 
 其中 $`L_{cache}`$ 是缓冲区宽度（DAPO 论文中的超参）。最终奖励为：
 
-$$
+```math
 R(o) = R_{verifier}(o) + R_{length}(o).
-$$
+```
 
 <a id="s6-5-3"></a>
 
@@ -2996,9 +3000,9 @@ DAPO 论文的实验也证实了在数学推理任务上去掉 KL 不会导致�
 
 综合四项改进与 KL 移除，DAPO 的完整目标函数为：
 
-$$
+```math
 L^{DAPO} = -\mathbb{E}\left[\frac{1}{\sum_{i \in \mathcal{B}_{valid}} |o_i|}\sum_{i \in \mathcal{B}_{valid}} m_i \sum_{t=1}^{|o_i|} \min\!\left(r_{i,t}\,\hat{A}_i,\; \text{clip}_{asym}(r_{i,t}, 1-\varepsilon_{low}, 1+\varepsilon_{high})\,\hat{A}_i\right)\right]
-$$
+```
 
 其中：
 - $`\mathcal{B}_{valid}`$ 是动态采样过滤后的有效 prompt 集合（$`0 < \text{acc} < 1`$）。
@@ -3178,7 +3182,9 @@ GSPO（Group Sequence Policy Optimization）由阿里巴巴 Qwen 团队提出（
 
 回顾 GRPO 的做法（见第 3 章）：对组内第 $`i`$ 条回答的第 $`t`$ 个 token，独立计算重要性采样比率
 
-$$r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}$$
+```math
+r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}
+```
 
 并在每个 token 上独立执行 PPO-style clip。这个设计有三个深层问题。
 
@@ -3194,13 +3200,17 @@ $$r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old
 
 GSPO 的解法是将优化粒度从 token 级提升到序列级。定义序列级重要性比率为
 
-$$s_i(\theta) = \left(\frac{\pi_\theta(o_i \mid q)}{\pi_{\theta_{old}}(o_i \mid q)}\right)^{1/|o_i|} = \exp\left(\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\log\frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}\right)$$
+```math
+s_i(\theta) = \left(\frac{\pi_\theta(o_i \mid q)}{\pi_{\theta_{old}}(o_i \mid q)}\right)^{1/|o_i|} = \exp\left(\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\log\frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}\right)
+```
 
 即 token 级比率的**几何平均**。长度归一化因子 $`1/|o_i|`$ 的作用至关重要：若不归一，$`\log s_i`$ 将是 $`|o_i|`$ 项 log-ratio 之和，其量级随序列长度线性增长，导致 $`s_i`$ 数值爆炸或下溢，无法用于稳定的 clip 优化。归一化后，$`s_i`$ 的数值范围与序列长度解耦，使得同一套超参可以适用于不同长度的回答。
 
 GSPO 的目标函数在序列级做 clip：
 
-$$J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\theta)\,\hat{A}_i,\ \text{clip}(s_i(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\,\hat{A}_i\right)\right]$$
+```math
+J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\theta)\,\hat{A}_i,\ \text{clip}(s_i(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\,\hat{A}_i\right)\right]
+```
 
 其中 $`\hat{A}_i`$ 仍为序列级优势（如 GRPO 的组均值基线或 Dr.GRPO 的修正形式）。注意此处 clip 作用于**整条回答**：一条回答要么整体被强化、要么整体被削弱、要么整体被 clip，优化单元与奖励单元完全对齐。（注：上述目标函数是序列级形式的直接类比，具体细节以原论文为准。）
 
@@ -3212,17 +3222,23 @@ $$J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\thet
 
 对 GSPO，由于 $`s_i(\theta) = \exp\left(\frac{1}{|o_i|}\sum_t \log r_{i,t}(\theta)\right)`$，由链式法则可得
 
-$$\nabla_\theta s_i(\theta) = s_i(\theta) \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})$$
+```math
+\nabla_\theta s_i(\theta) = s_i(\theta) \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})
+```
 
 因此在未触发 clip 的情形下，GSPO 对参数 $`\theta`$ 的梯度为
 
-$$\nabla_\theta J^{GSPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G s_i(\theta)\,\hat{A}_i \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+\nabla_\theta J^{GSPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G s_i(\theta)\,\hat{A}_i \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 **关键特征**：$`s_i(\theta)`$ 是一个**序列级标量**，它对同一序列内所有 token 的梯度施加相同的加权系数。
 
 对比 GRPO 的梯度（见第 3 章）：
 
-$$\nabla_\theta J^{GRPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i \cdot \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+\nabla_\theta J^{GRPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i \cdot \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 **关键区别**：GRPO 让每个 token 用自己的 $`r_{i,t}`$ 独立加权。当某个 token 的 $`r_{i,t}`$ 因路由抖动或其他噪声异常偏高时，该 token 的梯度会被过度放大；而在 GSPO 中，这种局部异常被几何平均平滑掉了。**GSPO 用一个序列级标量统一加权所有 token 的梯度，GRPO 则让每个 token 用自己的比率加权**——前者方差更低、对局部噪声更鲁棒，后者可能对个别 token 过度反应。这是理解两者差异的关键。
 
@@ -3258,7 +3274,9 @@ CISPO（Clipped IS-weight Policy Optimization）出自 MiniMax-M1 技术报告�
 
 CISPO 的核心思想是：**不对目标函数做 PPO 式 hard ratio clipping，而是把重要性采样权重裁剪后作为 detached（stop-gradient）系数**。其损失形式类似 REINFORCE / policy gradient：
 
-$$L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 其中 $`\hat{r}^{IS}_{i,t} = \text{clip}(r^{IS}_{i,t},\, 0,\, \varepsilon^{IS}_{high})`$ 是被裁剪的 IS 权重，$`\text{sg}(\cdot)`$ 表示 stop-gradient（即该部分不参与求导）。（注：这是依据"CISPO 裁剪 IS 权重作为 detached 系数而非 hard ratio clipping"这一核心描述的公式重构，**具体形式请以 MiniMax-M1 技术报告为准**。）
 
@@ -3270,7 +3288,9 @@ CISPO 与 PPO/GRPO 在梯度层面的本质区别可以通过直接求导看出�
 
 对 CISPO，由于 $`\text{sg}(\hat{r}^{IS}_{i,t})`$ 被视为常数，梯度为
 
-$$\nabla_\theta L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\nabla_\theta \log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+\nabla_\theta L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\nabla_\theta \log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 **关键特征**：$`\nabla_\theta \log\pi_\theta`$ 项对**所有 token 都非零**。clip 只影响"这个 token 的权重多大"（通过 $`\text{sg}(\hat{r}^{IS}_{i,t})`$ 控制），而不影响"这个 token 有没有梯度"。即使某个 token 的原始比率 $`r^{IS}_{i,t}`$ 远超 clip 上界，它仍然以被裁剪后的权重 $`\varepsilon^{IS}_{high}`$ 参与梯度更新，而非被完全丢弃。
 
@@ -3948,9 +3968,9 @@ def build_completion_mask(
 
 **KV Cache 估算式**：
 
-$$
+```math
 \text{KV Cache} \approx 2 \times L \times H_{kv} \times d_{head} \times S \times B \times \text{bytes\_per\_elem}
-$$
+```
 
 其中 $`L`$ 为层数，$`H_{kv}`$ 为 KV 头数（GQA 时小于注意力头数），$`d_{head}`$ 为头维度，$`S`$ 为序列长度，$`B`$ 为 batch size，`bytes_per_elem` 为精度字节数（bf16=2, fp16=2, fp32=4）。
 

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ANCHOR = re.compile(r'^<a (?:name|id)="[^"]+"></a>\n\n', re.M)
 TOC = re.compile(r'\n<!-- toc:start -->\n.*?<!-- toc:end -->\n\n', re.S)
 CHAPTER = re.compile(r'^第\s*(\d+)\s*章')
+HASH = '#user-content-'  # ponytail: GitHub prefixes HTML IDs; use '#' for a renderer that preserves IDs.
 
 
 def headings(text):
@@ -46,8 +47,8 @@ def annotate(lines, entries, offset=0):
 
 def toc(entries, target=''):
     chapters = [e for e in entries if e[1] == 1 and CHAPTER.match(e[2])]
-    links = [f'- [{e[2]}]({target}#{e[3]})' for e in chapters]
-    sections = [f'{"  " if e[1] == 3 else ""}- [{e[2]}]({target}#{e[3]})'
+    links = [f'- [{e[2]}]({target}{HASH}{e[3]})' for e in chapters]
+    sections = [f'{"  " if e[1] == 3 else ""}- [{e[2]}]({target}{HASH}{e[3]})'
                 for e in entries if e[4] and e[1] in (2, 3)]
     return '\n'.join(links + ['', '<details>', '<summary>展开小节目录</summary>', '']
                      + sections + ['', '</details>', ''])
@@ -76,7 +77,7 @@ def generate(source):
     assert chapters and [e[4] for e in chapters] == list(range(1, len(chapters) + 1))
     body = annotate(lines, entries)
     first = entries[0]
-    intro_links = [f'[{e[2]}](#{e[3]})' for e in entries if e[2] in ('阅读路线', '全文通用符号约定')]
+    intro_links = [f'[{e[2]}]({HASH}{e[3]})' for e in entries if e[2] in ('阅读路线', '全文通用符号约定')]
     full_toc = '<!-- toc:start -->\n[返回项目首页](README.md) · ' + ' · '.join(intro_links)
     full_toc += '\n\n## 可点击目录\n\n' + toc(entries) + '\n<!-- toc:end -->\n\n'
     title_line = '# ' + first[2] + '\n'
@@ -98,12 +99,12 @@ def generate(source):
         if i + 1 < len(chapters):
             nav.append(f'[下一章](chapter-{number + 1:02d}.md)')
         navigation = ' · '.join(nav)
-        local_toc = '\n'.join(f'- [{e[2]}](#{e[3]})' for e in chapter_entries if e[1] == 2)
+        local_toc = '\n'.join(f'- [{e[2]}]({HASH}{e[3]})' for e in chapter_entries if e[1] == 2)
         chapter_body = fold_answers(annotate(lines[start:end], chapter_entries, start))
         chapter_body = chapter_body.replace('# ' + title + '\n', '# ' + title + '\n\n**本章目录**\n\n' + local_toc + '\n', 1)
         files[f'docs/chapter-{number:02d}.md'] = navigation + '\n\n---\n\n' + chapter_body + '\n---\n\n' + navigation + '\n'
-        rows.append(f'| {title} | [分章阅读](docs/chapter-{number:02d}.md) · [全文位置]({source.name}#{anchor}) |')
-    readme = (ROOT / 'README.md').read_text(encoding='utf-8')
+        rows.append(f'| {title} | [分章阅读](docs/chapter-{number:02d}.md) · [全文位置]({source.name}{HASH}{anchor}) |')
+    readme = (ROOT / 'README.md').read_text(encoding='utf-8').replace('.md#s', '.md' + HASH + 's')
     files['README.md'] = re.sub(r'<!-- chapters:start -->.*?<!-- chapters:end -->',
                                lambda _: '<!-- chapters:start -->\n' + '\n'.join(rows) + '\n<!-- chapters:end -->', readme, flags=re.S)
     return files
@@ -125,7 +126,9 @@ def check_links(files):
             assert target.is_relative_to(ROOT), f'{name}: 链接越过仓库边界：{link}'
             assert target.is_file(), f'{name}: 文件不存在：{link}'
             if url.fragment:
-                assert '<a id="' + unquote(url.fragment) + '"></a>' in target.read_text(encoding='utf-8'), f'{name}: 锚点不存在：{link}'
+                assert url.fragment.startswith('user-content-'), f'{name}: 缺少 GitHub 锚点前缀：{link}'
+                anchor = unquote(url.fragment).removeprefix('user-content-')
+                assert '<a id="' + anchor + '"></a>' in target.read_text(encoding='utf-8'), f'{name}: 锚点不存在：{link}'
             count += 1
     return count
 

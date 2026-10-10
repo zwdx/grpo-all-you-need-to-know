@@ -8,14 +8,14 @@
 
 **本章目录**
 
-- [1.1 开场定位：GRPO 是什么](#s1-1)
-- [1.2 LLM 后训练的 MDP 视角](#s1-2)
-- [1.3 PPO 在 LLM 场景下的四个负担](#s1-3)
-- [1.4 GRPO 的核心洞察：以采样换模型](#s1-4)
-- [1.5 PPO 与 GRPO 的系统对比](#s1-5)
-- [1.6 GRPO 的适用边界](#s1-6)
-- [1.7 全文档阅读路线](#s1-7)
-- [1.8 本章小结与自测](#s1-8)
+- [1.1 开场定位：GRPO 是什么](#user-content-s1-1)
+- [1.2 LLM 后训练的 MDP 视角](#user-content-s1-2)
+- [1.3 PPO 在 LLM 场景下的四个负担](#user-content-s1-3)
+- [1.4 GRPO 的核心洞察：以采样换模型](#user-content-s1-4)
+- [1.5 PPO 与 GRPO 的系统对比](#user-content-s1-5)
+- [1.6 GRPO 的适用边界](#user-content-s1-6)
+- [1.7 全文档阅读路线](#user-content-s1-7)
+- [1.8 本章小结与自测](#user-content-s1-8)
 
 <a id="s1-1"></a>
 
@@ -50,12 +50,12 @@
 
 LLM 后训练中的奖励信号与经典 RL 有本质区别。在机器人控制、游戏等经典场景中，奖励通常在每一步都有定义（dense reward），或者至少在若干中间里程碑处给出（shaped reward）。但在 LLM 后训练中，**绝大多数情况下奖励只在最后一个 token 给出**，这被称为结果奖励（outcome reward）或稀疏奖励（sparse reward）。形式化地：
 
-$$
+```math
 r_t = \begin{cases}
 0, & t < |o| \\
 R(q, o), & t = |o|
 \end{cases}
-$$
+```
 
 其中 $`R(q, o)`$ 是对整条回答的质量评分，可以来自规则验证器（如数学题的答案校验）、奖励模型（reward model）或人类反馈。中间所有 token 的即时奖励均为零。
 
@@ -67,21 +67,21 @@ $$
 
 定义从时刻 $`t`$ 出发的回报（return / reward-to-go）为：
 
-$$
+```math
 G_t = \sum_{k=t}^{|o|} \gamma^{k-t} r_k
-$$
+```
 
 其中 $`\gamma \in [0, 1]`$ 是折扣因子（discount factor）。将上述稀疏奖励结构代入：当 $`t < |o|`$ 时，$`r_t = r_{t+1} = \cdots = r_{|o|-1} = 0`$，唯一非零项是 $`r_{|o|} = R(q, o)`$，因此：
 
-$$
+```math
 G_t = \gamma^{|o|-t} \cdot R(q, o), \quad \forall \, t \leq |o|
-$$
+```
 
 在实践中，LLM RL 通常取 $`\gamma = 1`$（理由见下一小节），此时上式进一步简化为：
 
-$$
+```math
 G_t = R(q, o), \quad \forall \, t \leq |o|
-$$
+```
 
 **这意味着：在同一条轨迹内，无论从哪个 token 位置 $`t`$ 出发，回报值都完全相同，都等于整条回答的最终奖励 $`R(q, o)`$。**
 
@@ -98,15 +98,15 @@ $$
 
 因此，LLM RL 实践中普遍取 $`\gamma = 1`$。此时 GAE 的递推公式（见 PPO 文档第 4 章）：
 
-$$
+```math
 \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t), \quad \hat{A}_t^{\text{GAE}} = \sum_{l=0}^{|o|-t} (\gamma \lambda)^l \delta_{t+l}
-$$
+```
 
 在 $`\gamma = 1`$ 且 $`r_t = 0`$（$`t < |o|`$）的条件下退化为：
 
-$$
+```math
 \delta_t = V(s_{t+1}) - V(s_t) \quad (t < |o|), \quad \delta_{|o|} = R(q,o) - V(s_{|o|})
-$$
+```
 
 GAE 变成了一系列相邻价值函数差分的加权和。如果 critic 拟合完美（$`V(s_t) = \mathbb{E}[R(q,o) \mid s_t]`$），这些差分之和恰好 telescoping 消去，$`\hat{A}_t^{\text{GAE}} = R(q,o) - V(s_0)`$，与直接蒙特卡洛估计一致。但如果 critic 有误差，这些误差会沿递推累积，反而引入额外的偏差和方差。**当 $`\gamma = 1`$ 且奖励集中在终点时，critic 对优势估计的"方差缩减"收益被其自身拟合误差所抵消，甚至可能适得其反。** 这从另一个角度削弱了 critic 在 LLM 场景下的必要性。
 
@@ -139,9 +139,9 @@ GRPO 去掉 critic 后，模型数从 4 降为 3。如果使用规则奖励（ru
 
 Critic 不是免费附赠的——它自身也需要训练。在 PPO 的每个更新周期中，critic 通过最小化价值函数的均方误差损失来更新参数 $`\phi`$：
 
-$$
+```math
 \mathcal{L}_{\text{critic}}(\phi) = \mathbb{E}_{(s_t, G_t)} \left[ \left( V_\phi(s_t) - G_t \right)^2 \right]
-$$
+```
 
 这带来两个问题：
 
@@ -182,17 +182,17 @@ PPO 在 LLM 尺度下的超参数敏感度远高于经典 RL：
 
 具体来说，对于同一个 prompt $`q`$，我们从当前策略 $`\pi_\theta`$ 采样 $`G`$ 个回答 $`\{o_1, o_2, \ldots, o_G\}`$，分别获得奖励 $`\{r_1, r_2, \ldots, r_G\}`$（其中 $`r_i = R(q, o_i)`$）。回忆状态价值函数的定义：
 
-$$
+```math
 V^\pi(s_0 = q) = \mathbb{E}_{o \sim \pi(\cdot \mid q)} [R(q, o)]
-$$
+```
 
 组均值 $`\bar{r} = \frac{1}{G} \sum_{i=1}^G r_i`$ 正是 $`V^\pi(q)`$ 的一个蒙特卡洛（Monte Carlo）估计量。根据大数定律，当 $`G \to \infty`$ 时 $`\bar{r} \to V^\pi(q)`$（几乎处处收敛）。对于有限的 $`G`$，$`\bar{r}`$ 是 $`V^\pi(q)`$ 的无偏估计（unbiased estimator），即 $`\mathbb{E}[\bar{r}] = V^\pi(q)`$。组内标准差 $`\sigma_r = \sqrt{\frac{1}{G} \sum_{i=1}^G (r_i - \bar{r})^2}`$ 则可用于归一化，消除不同 prompt 之间奖励尺度的差异。
 
 于是，第 $`i`$ 条回答的优势估计为：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \bar{r}}{\sigma_r}
-$$
+```
 
 这就是"组相对"（Group Relative）名称的由来：每条回答的优势是相对于同组其他回答的统计量而言的。
 

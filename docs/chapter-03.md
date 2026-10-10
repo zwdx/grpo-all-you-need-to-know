@@ -8,14 +8,14 @@
 
 **本章目录**
 
-- [3.1 符号与设定](#s3-1)
-- [3.2 GRPO 完整目标函数](#s3-2)
-- [3.3 KL 项的无偏估计器](#s3-3)
-- [3.4 GRPO 与 PPO 的逐项对照](#s3-4)
-- [3.5 完整算法伪代码](#s3-5)
-- [3.6 计算与显存分析](#s3-6)
-- [3.7 一个极简的数值算例](#s3-7)
-- [3.8 本章小结与自测](#s3-8)
+- [3.1 符号与设定](#user-content-s3-1)
+- [3.2 GRPO 完整目标函数](#user-content-s3-2)
+- [3.3 KL 项的无偏估计器](#user-content-s3-3)
+- [3.4 GRPO 与 PPO 的逐项对照](#user-content-s3-4)
+- [3.5 完整算法伪代码](#user-content-s3-5)
+- [3.6 计算与显存分析](#user-content-s3-6)
+- [3.7 一个极简的数值算例](#user-content-s3-7)
+- [3.8 本章小结与自测](#user-content-s3-8)
 
 <a id="s3-1"></a>
 
@@ -42,23 +42,23 @@
 
 DeepSeekMath（Shao et al., 2024, arXiv:2402.03300）给出的 GRPO 目标函数（原文 Eq. 4）为：
 
-$$
+```math
 J(\theta) = \mathbb{E}_{q \sim P(Q),\, \{o_i\}_{i=1}^G \sim \pi_{\theta_{old}}(\cdot|q)} \left[ \frac{1}{G} \sum_{i=1}^{G} \frac{1}{|o_i|} \sum_{t=1}^{|o_i|} \left( r_{i,t}(\theta)\,\hat{A}_{i,t} - \beta\, \mathbb{D}_{KL}\!\left[\pi_\theta(\cdot|q,o_{i,<t}) \,\|\, \pi_{ref}(\cdot|q,o_{i,<t})\right] \right) \right]
-$$
+```
 
 其中三个核心组件定义如下：
 
 **逐 token 重要性比率（per-token importance ratio）**：
 
-$$
+```math
 r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}
-$$
+```
 
 **组内归一化优势（group-normalized advantage）**：
 
-$$
+```math
 \hat{A}_{i,t} = \hat{A}_i = \frac{r_i - \text{mean}(\{r_j\}_{j=1}^G)}{\text{std}(\{r_j\}_{j=1}^G)}
-$$
+```
 
 **KL 散度**：$`\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]`$ 是在每个 token 位置 $`(i,t)`$ 上、对当前策略与参考模型之间的 KL 散度。
 
@@ -89,9 +89,9 @@ $$
 
 带 clip 的实用形式为：
 
-$$
+```math
 L^{GRPO}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\hat{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 其中 $`\text{clip}(x, 1-\varepsilon, 1+\varepsilon) = \max(1-\varepsilon, \min(1+\varepsilon, x))`$，$`\hat{D}_{KL,i,t}`$ 是 KL 散度的采样估计器（下一节详述）。取负号是因为优化框架通常最小化损失，而 $`J(\theta)`$ 是最大化目标。clip 的作用机制与 PPO 完全一致（见 PPO 文档第 6 章的六情形梯度分析），此处不再重复推导。
 
@@ -105,9 +105,9 @@ $$
 
 目标函数中的 $`\mathbb{D}_{KL}[\pi_\theta(\cdot|x) \| \pi_{ref}(\cdot|x)]`$（简写 $`x = (q, o_{i,<t})`$）定义为：
 
-$$
+```math
 \mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}] = \sum_{y \in \mathcal{V}} \pi_\theta(y|x) \log \frac{\pi_\theta(y|x)}{\pi_{ref}(y|x)}
-$$
+```
 
 这是对词表 $`\mathcal{V}`$ 求和的量。虽然原则上可以精确计算（遍历整个词表），但在每个 token 位置都做一次全词表求和开销不小（$`V`$ 通常为几万到几十万）。更重要的是，我们需要一个**能通过采样得到的、可微的、能正确反传梯度的估计器**。
 
@@ -117,44 +117,44 @@ $$
 
 DeepSeekMath 采用的是 Schulman 在其博客 "Approximating KL Divergence" 中提出的 k3 估计器。设 $`y \sim \pi_\theta(\cdot|x)`$ 为从当前策略采样的 token（实际上就是 rollout 中生成的 $`o_{i,t}`$），定义比率：
 
-$$
+```math
 r = \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}
-$$
+```
 
 则 k3 估计器为：
 
-$$
+```math
 \hat{D}_{KL}^{(k3)} = r - \log r - 1 = \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - \log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - 1
-$$
+```
 
 **无偏性证明**：
 
-$$
+```math
 \begin{aligned}
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\hat{D}_{KL}^{(k3)}\right] &= \mathbb{E}_{y \sim \pi_\theta}\!\left[\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - \log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} - 1\right] \\
 &= \underbrace{\mathbb{E}_{y \sim \pi_\theta}\!\left[\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right]}_{(*)} - \underbrace{\mathbb{E}_{y \sim \pi_\theta}\!\left[\log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right]}_{(**)} - 1
 \end{aligned}
-$$
+```
 
 对第一项 $`(*)`$，利用重要性采样的基本恒等式：
 
-$$
+```math
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right] = \sum_{y \in \mathcal{V}} \pi_\theta(y|x) \cdot \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)} = \sum_{y \in \mathcal{V}} \pi_{ref}(y|x) = 1
-$$
+```
 
 对第二项 $`(**)`$，展开对数比：
 
-$$
+```math
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\log \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right] = \mathbb{E}_{y \sim \pi_\theta}[\log \pi_{ref}(y|x) - \log \pi_\theta(y|x)] = -\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]
-$$
+```
 
 这里用到了 KL 散度的定义 $`\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}] = \mathbb{E}_{y \sim \pi_\theta}[\log \pi_\theta - \log \pi_{ref}]`$。
 
 代回原式：
 
-$$
+```math
 \mathbb{E}_{y \sim \pi_\theta}\!\left[\hat{D}_{KL}^{(k3)}\right] = 1 - \left(-\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]\right) - 1 = \mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]
-$$
+```
 
 证毕。$`\blacksquare`$
 
@@ -164,15 +164,15 @@ $$
 
 令 $`u = \log r`$，则 $`r = e^u`$，于是：
 
-$$
+```math
 \hat{D}_{KL}^{(k3)} = e^u - u - 1
-$$
+```
 
 由指数函数的凸性，$`e^u \geq u + 1`$ 对所有实数 $`u`$ 成立（这是 $`e^u`$ 在 $`u=0`$ 处的切线不等式，当且仅当 $`u=0`$ 即 $`r=1`$ 即 $`\pi_\theta = \pi_{ref}`$ 时取等号）。因此：
 
-$$
+```math
 e^u - u - 1 \geq 0 \quad \forall\, u \in \mathbb{R}
-$$
+```
 
 即 $`\hat{D}_{KL}^{(k3)} \geq 0`$ 恒成立。$`\blacksquare`$
 
@@ -200,21 +200,21 @@ Schulman 博客中还讨论了另外两种估计器，一并列出以供比较�
 
 k3 估计器中 $`r = \pi_{ref}(y|x)/\pi_\theta(y|x)`$ 显式依赖于 $`\theta`$（因为 $`y`$ 是从 $`\pi_\theta`$ 采样的固定 token，$`\pi_{ref}(y|x)`$ 是常数，但 $`\pi_\theta(y|x)`$ 随 $`\theta`$ 变化）。对 $`\theta`$ 求梯度：
 
-$$
+```math
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \nabla_\theta (r - \log r - 1) = \left(1 - \frac{1}{r}\right) \nabla_\theta r
-$$
+```
 
 由于 $`r = \pi_{ref}/\pi_\theta`$，故 $`\nabla_\theta r = -\frac{\pi_{ref}}{\pi_\theta^2} \nabla_\theta \pi_\theta = -r \cdot \nabla_\theta \log \pi_\theta`$。代入得：
 
-$$
+```math
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \left(1 - \frac{1}{r}\right)(-r) \nabla_\theta \log \pi_\theta(y|x) = (1 - r) \nabla_\theta \log \pi_\theta(y|x)
-$$
+```
 
 即：
 
-$$
+```math
 \nabla_\theta \hat{D}_{KL}^{(k3)} = \left(1 - \frac{\pi_{ref}(y|x)}{\pi_\theta(y|x)}\right) \nabla_\theta \log \pi_\theta(y|x)
-$$
+```
 
 这个梯度形式的直觉是：当 $`\pi_\theta(y|x) > \pi_{ref}(y|x)`$（即 $`r < 1`$）时，括号项为正，梯度方向与 $`\nabla_\theta \log \pi_\theta`$ 一致，但由于 KL 项前面有负号 $`-\beta`$，实际效果是**减小**该 token 的概率（把策略拉回参考模型）；反之亦然。
 
@@ -236,9 +236,9 @@ $$
 
 **记忆性总结**：
 
-$$
+```math
 \text{GRPO} = \text{PPO} - \text{critic} - \text{GAE} + \text{组内基线} + \text{显式 KL 项}
-$$
+```
 
 每一项的数学后果：去掉 critic 消除了价值估计偏差但丧失了 token 级信号；去掉 GAE 使优势变为序列级常量；组内基线以 $`G`$ 倍采样换取无偏的 $`V^\pi`$ 估计（方差 $`\sigma^2/G`$，见第 2 章）；显式 KL 项提供了比奖励塑形更精确的约束控制。
 
@@ -265,8 +265,12 @@ $$
 3. **计算奖励**：对每个回答计算标量奖励 $`r_{b,i} = R(q_b, o_{b,i})`$。
 
 4. **计算组内优势**：对每个 prompt $`b`$，分别计算：
-   $$\bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)$$
-   $$\hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}$$
+   ```math
+   \bar{r}_b = \frac{1}{G}\sum_{i=1}^G r_{b,i}, \quad \sigma_b = \text{std}(\{r_{b,i}\}_{i=1}^G)
+   ```
+   ```math
+   \hat{A}_{b,i} = \frac{r_{b,i} - \bar{r}_b}{\sigma_b + \epsilon_{num}}
+   ```
    其中 $`\epsilon_{num}`$ 是防止除零的小常数（如 $`10^{-8}`$）。若 $`\sigma_b = 0`$（全组奖励相同），则 $`\hat{A}_{b,i} = 0`$，该 prompt 在本 step 无梯度贡献。
 
 5. **冻结旧策略日志概率**：记 $`\log \pi_{\theta_{old}}(o_{b,i,t}|\cdot)`$ 为步骤 2 中记录的值。此后在内层循环中不再更新此值。
@@ -303,15 +307,15 @@ $$
 
 **当 $`K=1`$ 时，GRPO 严格来说是 on-policy 的**。此时 $`\theta_{old} = \theta`$（因为内层只跑一个 epoch，没有之前的更新使 $`\theta`$ 偏离 $`\theta_{old}`$），因此：
 
-$$
+```math
 r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t}|\cdot)}{\pi_{\theta_{old}}(o_{i,t}|\cdot)} = 1 \quad \forall\, i, t
-$$
+```
 
 比率恒为 1，$`\text{clip}(1, 1-\varepsilon, 1+\varepsilon) = 1`$，$`\min(1 \cdot \hat{A}_i, 1 \cdot \hat{A}_i) = \hat{A}_i`$。**clip 机制完全不生效**。此时 GRPO 退化为：
 
-$$
+```math
 L^{GRPO}|_{K=1} = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\hat{A}_i - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 这就是「带组内基线的 REINFORCE + KL 惩罚」。只有当 $`K > 1`$（或因异步/延迟更新导致 $`\theta_{old} \neq \theta`$）时，比率才会偏离 1，clip 才开始发挥限制更新幅度的作用。
 
@@ -387,21 +391,21 @@ GRPO 并非免费午餐：它把显存开销转成了**推理时间开销**。$`
 
 设 $`G=4`$，某 prompt 的四个回答奖励为 $`r = [1, 0, 1, 0]`$（两个正确、两个错误）。
 
-$$
+```math
 \bar{r} = \frac{1+0+1+0}{4} = 0.5
-$$
+```
 
 使用总体标准差：
 
-$$
+```math
 \sigma = \sqrt{\frac{(1-0.5)^2 + (0-0.5)^2 + (1-0.5)^2 + (0-0.5)^2}{4}} = \sqrt{\frac{0.25 \times 4}{4}} = 0.5
-$$
+```
 
 归一化优势：
 
-$$
+```math
 \hat{A} = \left[\frac{1-0.5}{0.5},\; \frac{0-0.5}{0.5},\; \frac{1-0.5}{0.5},\; \frac{0-0.5}{0.5}\right] = [1, -1, 1, -1]
-$$
+```
 
 **解读**：正确的回答得到 $`+1`$ 的优势（增大其每个 token 的概率），错误的得到 $`-1`$（减小概率）。关键在于：**同一条回答里的所有 token 得到完全相同的信号**。如果某个错误回答的前半部分其实写得很好、只是最后一步推理出错，那些好的 token 仍然收到 $`-1`$ 的信号——这就是信用分配缺失的直观体现（承接第 2 章 2.7 节的讨论）。
 
@@ -419,15 +423,15 @@ $$
 
 设 $`r = [1, 1, 1, 0]`$。则：
 
-$$
+```math
 \bar{r} = \frac{3}{4} = 0.75, \quad \sigma = \sqrt{\frac{3 \times (1-0.75)^2 + (0-0.75)^2}{4}} = \sqrt{\frac{3 \times 0.0625 + 0.5625}{4}} = \sqrt{\frac{0.75}{4}} = \frac{\sqrt{3}}{4} \approx 0.433
-$$
+```
 
 归一化优势：
 
-$$
+```math
 \hat{A} = \left[\frac{0.25}{0.433},\; \frac{0.25}{0.433},\; \frac{0.25}{0.433},\; \frac{-0.75}{0.433}\right] \approx [0.577,\; 0.577,\; 0.577,\; -1.732]
-$$
+```
 
 **关键观察**：那一个错误回答受到的惩罚（$`-1.732`$）远大于每个正确回答得到的奖励（$`+0.577`$），绝对值之比恰好为 $`3:1`$。这不是巧合，而是组内归一化的数学必然：优势之和必须为零（$`\sum_i \hat{A}_i = 0`$），所以当多数样本优于少数样本时，少数样本必须承受更大的负信号来平衡。
 

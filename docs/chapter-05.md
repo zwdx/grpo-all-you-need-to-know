@@ -8,14 +8,14 @@
 
 **本章目录**
 
-- [5.1 为什么 GRPO 会有系统性偏差](#s5-1)
-- [5.2 长度偏差（response-level length bias）的严格推导](#s5-2)
-- [5.3 难度偏差（question-level difficulty bias）的严格推导](#s5-3)
-- [5.4 loss 聚合方式（token-mean vs sequence-mean）](#s5-4)
-- [5.5 Dr.GRPO 的完整修正版目标函数](#s5-5)
-- [5.6 其他被讨论的 GRPO 偏差与争议](#s5-6)
-- [5.7 偏差修正的取舍与争议](#s5-7)
-- [5.8 本章小结与自测](#s5-8)
+- [5.1 为什么 GRPO 会有系统性偏差](#user-content-s5-1)
+- [5.2 长度偏差（response-level length bias）的严格推导](#user-content-s5-2)
+- [5.3 难度偏差（question-level difficulty bias）的严格推导](#user-content-s5-3)
+- [5.4 loss 聚合方式（token-mean vs sequence-mean）](#user-content-s5-4)
+- [5.5 Dr.GRPO 的完整修正版目标函数](#user-content-s5-5)
+- [5.6 其他被讨论的 GRPO 偏差与争议](#user-content-s5-6)
+- [5.7 偏差修正的取舍与争议](#user-content-s5-7)
+- [5.8 本章小结与自测](#user-content-s5-8)
 
 <a id="s5-1"></a>
 
@@ -44,17 +44,17 @@
 
 回顾第 3 章给出的带 clip 的 GRPO 实用形式（Eq. 68 的负损失版本）：
 
-$$
+```math
 L^{\text{GRPO}}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\hat{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\hat{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 其中 $`r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}|q,o_{i,<t})`$ 为逐 token 重要性比率，$`\hat{A}_i = (r_i - \text{mean})/\text{std}`$ 为组内归一化优势。
 
 本节暂时忽略 KL 项和 clip 机制（它们不影响长度偏差的分析），聚焦于替代目标部分。对于第 $`i`$ 个回答，其对损失的贡献为：
 
-$$
+```math
 L_i(\theta) = -\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i
-$$
+```
 
 <a id="s5-2-2"></a>
 
@@ -62,17 +62,17 @@ $$
 
 对 $`L_i(\theta)`$ 求关于 $`\theta`$ 的梯度。在 $`K=1`$（单 epoch 更新）、$`r_{i,t} \approx 1`$ 的近似下（承接第 3 章 §3.6 的分析），有：
 
-$$
+```math
 \nabla_\theta L_i(\theta) \approx -\frac{\hat{A}_i}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} | q, o_{i,<t})
-$$
+```
 
 这个表达式的结构非常清晰：**整个回答的梯度方向由 $`\sum_t \nabla_\theta \log \pi_\theta`$ 决定（这是标准的 REINFORCE 梯度方向），但其幅度被因子 $`\hat{A}_i / |o_i|`$ 所缩放。**
 
 关键观察：**同一个优势值 $`\hat{A}_i`$，作用在不同长度的回答上时，每个 token 分到的梯度权重是 $`\hat{A}_i / |o_i|`$。** 设同一 prompt 下有两个回答 $`o_a`$ 和 $`o_b`$，具有相同的优势值 $`\hat{A}`$，但 $`|o_a| < |o_b|`$，则：
 
-$$
+```math
 \frac{|\hat{A}|}{|o_a|} > \frac{|\hat{A}|}{|o_b|}
-$$
+```
 
 即短回答的每个 token 获得更大的梯度更新幅度。
 
@@ -105,21 +105,21 @@ $$
 
 修正方案极其简单：**去掉序列内的 $`(1/|o_i|)`$ 归一化**，改用全局常数归一化。具体而言，将目标函数中的
 
-$$
+```math
 \frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} (\cdots)
-$$
+```
 
 替换为
 
-$$
+```math
 \frac{1}{G}\sum_{i=1}^{G}\frac{1}{L_{\max}}\sum_{t=1}^{|o_i|} (\cdots)
-$$
+```
 
 其中 $`L_{\max}`$ 是一个全局常数（如最大生成长度或该 batch 的总 token 数）。等价地，也可以直接写成对所有 response token 取平均的形式：
 
-$$
+```math
 \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o_i|} (\cdots)
-$$
+```
 
 **修正后长度偏差消失的数学原因**：每个 token 的梯度权重变为 $`\hat{A}_i / L_{\max}`$（或 $`\hat{A}_i / \sum_j |o_j|`$），不再依赖其所属回答的长度 $`|o_i|`$。无论回答长短，同一优势值下的每个 token 获得相同尺度的梯度更新。
 
@@ -156,9 +156,9 @@ loss_unbiased = masked_mean(ppo_loss, response_mask, dim=None).mean()
 
 GRPO 的优势定义为：
 
-$$
+```math
 \hat{A}_i = \frac{r_i - \text{mean}(\{r_j\}_{j=1}^G)}{\text{std}(\{r_j\}_{j=1}^G)}
-$$
+```
 
 其中 $`\text{mean}`$ 和 $`\text{std}`$ 都是对同一 prompt $`q`$ 下 $`G`$ 个回答的奖励计算的。记 prompt $`q`$ 的组内奖励标准差为 $`\hat{\sigma}(q) = \text{std}(\{r_j\}_{j=1}^G)`$。
 
@@ -178,21 +178,21 @@ $$
 
 考虑二值奖励 $`r_i \in \{0, 1\}`$。设组内 $`G`$ 个回答中有 $`k`$ 个正确（$`r_i=1`$）、$`G-k`$ 个错误（$`r_i=0`$）。则：
 
-$$
+```math
 \text{mean} = \frac{k}{G}, \quad \text{std} = \sqrt{\frac{k}{G}\left(1 - \frac{k}{G}\right)}
-$$
+```
 
 这里使用的是总体标准差（population std）。对于一个正确的回答（$`r_i = 1`$），其优势为：
 
-$$
+```math
 \hat{A}_{\text{correct}} = \frac{1 - k/G}{\sqrt{(k/G)(1 - k/G)}} = \sqrt{\frac{1 - k/G}{k/G}}
-$$
+```
 
 类似地，对于一个错误的回答（$`r_i = 0`$）：
 
-$$
+```math
 \hat{A}_{\text{incorrect}} = \frac{0 - k/G}{\sqrt{(k/G)(1 - k/G)}} = -\sqrt{\frac{k/G}{1 - k/G}}
-$$
+```
 
 下表给出了不同 $`k/G`$ 值时的 std 与正确答案优势量级：
 
@@ -217,9 +217,9 @@ $$
 
 修正方案同样简单：**去掉组内的 $`(1/\text{std})`$ 归一化**，只用减均值的优势：
 
-$$
+```math
 \tilde{A}_i = r_i - \text{mean}(\{r_j\}_{j=1}^G)
-$$
+```
 
 去掉后，各 prompt 的优势量级回归到奖励本身的自然尺度。在二值奖励下，$`\tilde{A}_{\text{correct}} = 1 - k/G`$，$`\tilde{A}_{\text{incorrect}} = -k/G`$，其绝对值不超过 1，不再有边缘难度被放大的问题。
 
@@ -247,17 +247,17 @@ $$
 
 **① Sequence-mean-then-batch-mean（GRPO 原式）**：
 
-$$
+```math
 L_{\text{seq-mean}} = \frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \ell_{i,t}
-$$
+```
 
 先对每个回答内部按 $`|o_i|`$ 取平均，再对 $`G`$ 个回答取平均。**有长度偏差**，如 §5.2 所证。
 
 **② Token-mean（全 batch 所有 token 直接平均）**：
 
-$$
+```math
 L_{\text{token-mean}} = \frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o_i|} \ell_{i,t}
-$$
+```
 
 对整个 batch 的所有 response token 直接取平均，除以总 token 数。**无长度偏差**，Dr.GRPO 主张的方式。
 
@@ -304,15 +304,15 @@ VL-Norm 等后续工作对 loss 聚合方式进行了进一步研究，探讨了
 
 修正后的目标函数为：
 
-$$
+```math
 L^{\text{Dr.GRPO}}(\theta) = -\frac{1}{\sum_{i=1}^G |o_i|}\sum_{i=1}^{G}\sum_{t=1}^{|o_i|}\left[\min\!\left(r_{i,t}(\theta)\,\tilde{A}_i,\; \text{clip}\!\left(r_{i,t}(\theta),\, 1-\varepsilon,\, 1+\varepsilon\right)\tilde{A}_i\right) - \beta\,\hat{D}_{KL,i,t}\right]
-$$
+```
 
 其中优势简化为：
 
-$$
+```math
 \tilde{A}_i = r_i - \text{mean}(\{r_j\}_{j=1}^G)
-$$
+```
 
 注意 Dr.GRPO 论文在其实验中设 $`\beta = 0`$（去掉 KL 项），理由是 RLVR 使用规则验证器作为奖励，不存在奖励模型的分布偏移问题，因此不需要 KL 约束来防止策略偏离参考模型。但这不是 Dr.GRPO 修正的核心部分——KL 项的取舍是独立的设计决策，与偏差修正正交。在实际使用中，是否保留 KL 取决于具体任务设定。
 

@@ -8,13 +8,13 @@
 
 **本章目录**
 
-- [7.1 变体爆炸的背景与分类框架](#s7-1)
-- [7.2 GSPO：序列级重要性比率的数学动机](#s7-2)
-- [7.3 CISPO：保留全部 Token 梯度](#s7-3)
-- [7.4 其他值得了解的变体](#s7-4)
-- [7.5 谱系图与演化逻辑](#s7-5)
-- [7.6 选型建议](#s7-6)
-- [7.7 本章小结与自测](#s7-7)
+- [7.1 变体爆炸的背景与分类框架](#user-content-s7-1)
+- [7.2 GSPO：序列级重要性比率的数学动机](#user-content-s7-2)
+- [7.3 CISPO：保留全部 Token 梯度](#user-content-s7-3)
+- [7.4 其他值得了解的变体](#user-content-s7-4)
+- [7.5 谱系图与演化逻辑](#user-content-s7-5)
+- [7.6 选型建议](#user-content-s7-6)
+- [7.7 本章小结与自测](#user-content-s7-7)
 
 <a id="s7-1"></a>
 
@@ -63,7 +63,9 @@ GSPO（Group Sequence Policy Optimization）由阿里巴巴 Qwen 团队提出（
 
 回顾 GRPO 的做法（见第 3 章）：对组内第 $`i`$ 条回答的第 $`t`$ 个 token，独立计算重要性采样比率
 
-$$r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}$$
+```math
+r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}
+```
 
 并在每个 token 上独立执行 PPO-style clip。这个设计有三个深层问题。
 
@@ -79,13 +81,17 @@ $$r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old
 
 GSPO 的解法是将优化粒度从 token 级提升到序列级。定义序列级重要性比率为
 
-$$s_i(\theta) = \left(\frac{\pi_\theta(o_i \mid q)}{\pi_{\theta_{old}}(o_i \mid q)}\right)^{1/|o_i|} = \exp\left(\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\log\frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}\right)$$
+```math
+s_i(\theta) = \left(\frac{\pi_\theta(o_i \mid q)}{\pi_{\theta_{old}}(o_i \mid q)}\right)^{1/|o_i|} = \exp\left(\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\log\frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,<t})}\right)
+```
 
 即 token 级比率的**几何平均**。长度归一化因子 $`1/|o_i|`$ 的作用至关重要：若不归一，$`\log s_i`$ 将是 $`|o_i|`$ 项 log-ratio 之和，其量级随序列长度线性增长，导致 $`s_i`$ 数值爆炸或下溢，无法用于稳定的 clip 优化。归一化后，$`s_i`$ 的数值范围与序列长度解耦，使得同一套超参可以适用于不同长度的回答。
 
 GSPO 的目标函数在序列级做 clip：
 
-$$J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\theta)\,\hat{A}_i,\ \text{clip}(s_i(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\,\hat{A}_i\right)\right]$$
+```math
+J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\theta)\,\hat{A}_i,\ \text{clip}(s_i(\theta),\, 1-\varepsilon,\, 1+\varepsilon)\,\hat{A}_i\right)\right]
+```
 
 其中 $`\hat{A}_i`$ 仍为序列级优势（如 GRPO 的组均值基线或 Dr.GRPO 的修正形式）。注意此处 clip 作用于**整条回答**：一条回答要么整体被强化、要么整体被削弱、要么整体被 clip，优化单元与奖励单元完全对齐。（注：上述目标函数是序列级形式的直接类比，具体细节以原论文为准。）
 
@@ -97,17 +103,23 @@ $$J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\thet
 
 对 GSPO，由于 $`s_i(\theta) = \exp\left(\frac{1}{|o_i|}\sum_t \log r_{i,t}(\theta)\right)`$，由链式法则可得
 
-$$\nabla_\theta s_i(\theta) = s_i(\theta) \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})$$
+```math
+\nabla_\theta s_i(\theta) = s_i(\theta) \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})
+```
 
 因此在未触发 clip 的情形下，GSPO 对参数 $`\theta`$ 的梯度为
 
-$$\nabla_\theta J^{GSPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G s_i(\theta)\,\hat{A}_i \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+\nabla_\theta J^{GSPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G s_i(\theta)\,\hat{A}_i \cdot \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 **关键特征**：$`s_i(\theta)`$ 是一个**序列级标量**，它对同一序列内所有 token 的梯度施加相同的加权系数。
 
 对比 GRPO 的梯度（见第 3 章）：
 
-$$\nabla_\theta J^{GRPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i \cdot \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+\nabla_\theta J^{GRPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} r_{i,t}(\theta)\,\hat{A}_i \cdot \nabla_\theta \log \pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 **关键区别**：GRPO 让每个 token 用自己的 $`r_{i,t}`$ 独立加权。当某个 token 的 $`r_{i,t}`$ 因路由抖动或其他噪声异常偏高时，该 token 的梯度会被过度放大；而在 GSPO 中，这种局部异常被几何平均平滑掉了。**GSPO 用一个序列级标量统一加权所有 token 的梯度，GRPO 则让每个 token 用自己的比率加权**——前者方差更低、对局部噪声更鲁棒，后者可能对个别 token 过度反应。这是理解两者差异的关键。
 
@@ -143,7 +155,9 @@ CISPO（Clipped IS-weight Policy Optimization）出自 MiniMax-M1 技术报告�
 
 CISPO 的核心思想是：**不对目标函数做 PPO 式 hard ratio clipping，而是把重要性采样权重裁剪后作为 detached（stop-gradient）系数**。其损失形式类似 REINFORCE / policy gradient：
 
-$$L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 其中 $`\hat{r}^{IS}_{i,t} = \text{clip}(r^{IS}_{i,t},\, 0,\, \varepsilon^{IS}_{high})`$ 是被裁剪的 IS 权重，$`\text{sg}(\cdot)`$ 表示 stop-gradient（即该部分不参与求导）。（注：这是依据"CISPO 裁剪 IS 权重作为 detached 系数而非 hard ratio clipping"这一核心描述的公式重构，**具体形式请以 MiniMax-M1 技术报告为准**。）
 
@@ -155,7 +169,9 @@ CISPO 与 PPO/GRPO 在梯度层面的本质区别可以通过直接求导看出�
 
 对 CISPO，由于 $`\text{sg}(\hat{r}^{IS}_{i,t})`$ 被视为常数，梯度为
 
-$$\nabla_\theta L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\nabla_\theta \log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]$$
+```math
+\nabla_\theta L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\left(\hat{r}^{IS}_{i,t}\right)\,\hat{A}_i\,\nabla_\theta \log\pi_\theta(o_{i,t} \mid q, o_{i,<t})\right]
+```
 
 **关键特征**：$`\nabla_\theta \log\pi_\theta`$ 项对**所有 token 都非零**。clip 只影响"这个 token 的权重多大"（通过 $`\text{sg}(\hat{r}^{IS}_{i,t})`$ 控制），而不影响"这个 token 有没有梯度"。即使某个 token 的原始比率 $`r^{IS}_{i,t}`$ 远超 clip 上界，它仍然以被裁剪后的权重 $`\varepsilon^{IS}_{high}`$ 参与梯度更新，而非被完全丢弃。
 
