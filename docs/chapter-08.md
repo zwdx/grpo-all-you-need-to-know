@@ -2,7 +2,7 @@
 
 ---
 
-<a name="chapter-8"></a>
+<a id="chapter-8"></a>
 
 # 第 8 章 工程实现与实践
 
@@ -18,11 +18,11 @@
 
 本章是《GRPO 系统学习文档》的收尾章，目标是将前 7 章建立的理论体系落到可运行的代码与工程实践上。读者应已读完本文档第 1–7 章及 PPO 系统学习文档（含其第 7 章工程实现），具备 PyTorch 基础与 LLM RL 的数学直觉。本章不再重复推导，所有理论结论均通过引用定位；重点在于**每段代码与前文公式的精确对应**、工程决策背后的机理、以及一套可操作的诊断与排错方法论。
 
-<a name="s8-1"></a>
+<a id="s8-1"></a>
 
 ## 8.1 框架选型与上手路径
 
-<a name="s8-1-1"></a>
+<a id="s8-1-1"></a>
 
 ### 8.1.1 主流框架对比
 
@@ -45,7 +45,7 @@
 - **CISPO 看 NeMo-RL 指南**：NeMo-RL 提供了 CISPO 的实现指南与 MiniMax-M1 相关参考。
 - **单卡资源受限用 Unsloth**：在消费级 GPU 上高效微调小模型。
 
-<a name="s8-1-2"></a>
+<a id="s8-1-2"></a>
 
 ### 8.1.2 TRL 最小可运行示例
 
@@ -150,13 +150,13 @@ print("训练完成。检查 output_dir 中的日志与 checkpoint。")
 
 **运行说明**：上述代码可在单张消费级 GPU 上运行（0.5B 模型 + G=8 + 短序列）。将 `model_name` 替换为本地路径或其他小模型即可。若遇到 API 变更导致的参数错误，请查阅 TRL 官方文档中 `GRPOConfig` 的最新定义。
 
-<a name="s8-2"></a>
+<a id="s8-2"></a>
 
 ## 8.2 从零实现 GRPO 的核心逻辑
 
 本节给出一份结构清晰、与公式逐行对应的 PyTorch 参考实现。这不是一个完整的训练框架，而是**剥离了工程复杂性后的算法核心**，用于帮助读者理解每一行代码背后的数学含义。实际生产中请使用 8.1 节的成熟框架。
 
-<a name="s8-2-1"></a>
+<a id="s8-2-1"></a>
 
 ### 8.2.1 奖励函数：规则奖励与防 hacking
 
@@ -218,7 +218,7 @@ def math_verifier_reward(
 
 **与理论的对应与差异**：第 4 章指出奖励尺度不变性（$`R \to aR + b`$ 时 $`\hat{A}`$ 不变，$`a > 0`$），因此 1.0/0.0 的具体数值不影响优势计算。`format_penalty` 的选择也不影响组内归一化后的优势方向，但会影响组内 std 的大小，进而影响梯度幅度。实践中建议通过实验确定。
 
-<a name="s8-2-2"></a>
+<a id="s8-2-2"></a>
 
 ### 8.2.2 Rollout 与组采样：old_logprob 的正确获取
 
@@ -301,7 +301,7 @@ def generate_rollouts(
 
 **与理论的差异说明**：实际框架（如 TRL）通常在 `model.generate` 内部直接返回 logprob，避免额外的 forward pass。上面的写法是为了清晰展示原理。在生产代码中，应优先使用框架提供的机制以确保效率与正确性。
 
-<a name="s8-2-3"></a>
+<a id="s8-2-3"></a>
 
 ### 8.2.3 优势计算：严格按 prompt 分组
 
@@ -346,7 +346,7 @@ def compute_group_advantages(
     return advantages.view(-1)                         # (B*G,)
 ```
 
-<a name="s8-2-4"></a>
+<a id="s8-2-4"></a>
 
 ### 8.2.4 将序列级优势广播到每个 token
 
@@ -368,7 +368,7 @@ def broadcast_advantages_to_tokens(
     return advantages
 ```
 
-<a name="s8-2-5"></a>
+<a id="s8-2-5"></a>
 
 ### 8.2.5 损失计算：比率、clip、k3 KL、聚合
 
@@ -449,7 +449,7 @@ def compute_grpo_loss(
 2. **对数域算比率**：承接 PPO 文档第 7 章的数值稳定性处理，避免直接做 `π_θ / π_{θ_old}` 导致的浮点溢出。
 3. **approx_kl 的二阶近似**：`(exp(logratio) - 1 - logratio)` 对应 PPO 文档第 7 章的 `approx_kl` 计算公式，它在 `logratio ≈ 0` 时近似于 `(logratio)²/2`，比直接用 `logratio.mean()` 更准确。
 
-<a name="s8-2-6"></a>
+<a id="s8-2-6"></a>
 
 ### 8.2.6 Mask 的正确处理
 
@@ -480,11 +480,11 @@ def build_completion_mask(
 
 **为什么 mask 如此重要**：GRPO 的损失是对 completion token 求平均。如果 prompt token 未被 mask 掉，它们的 logprob 也会参与梯度计算，但这些 token 不是模型"选择"的（它们是给定的条件），对其施加梯度会破坏条件概率的正确性。如果 padding token 未被 mask 掉，它们的 logprob 通常是任意值（取决于初始化），会引入纯噪声梯度。
 
-<a name="s8-3"></a>
+<a id="s8-3"></a>
 
 ## 8.3 显存、并行与 Rollout 加速
 
-<a name="s8-3-1"></a>
+<a id="s8-3-1"></a>
 
 ### 8.3.1 显存分解
 
@@ -511,7 +511,7 @@ $$
 
 **长 CoT 的影响**：当 $`S`$ 从 512 增长到 8192 时，KV cache 增长 16 倍。对于 7B 模型（$`L=32, H_{kv}=8, d_{head}=128`$），$`S=8192, B=32`$ 时 KV cache 约 $`2 \times 32 \times 8 \times 128 \times 8192 \times 32 \times 2 \approx 26.8`$ GB。这就是为什么长 CoT 训练中 KV cache 往往比模型权重本身占用更多显存。
 
-<a name="s8-3-2"></a>
+<a id="s8-3-2"></a>
 
 ### 8.3.2 省显存的手段及其代价
 
@@ -525,7 +525,7 @@ $$
 
 **LoRA 与 Reference Model 的关系**：这是一个重要的工程洞察。在 LoRA 设置下，reference model 就是 base model + 关闭的 adapter。因此不需要单独加载一份 reference model 权重，只需在前向时禁用 adapter 即可得到 ref_logprobs。这直接省下 $`2\Phi`$ 显存，对小显存环境意义重大。
 
-<a name="s8-3-3"></a>
+<a id="s8-3-3"></a>
 
 ### 8.3.3 并行策略
 
@@ -537,7 +537,7 @@ $$
 | **流水线并行 (PP)** | 不同层分配到不同 GPU | 点对点激活传递 | 超深模型 | 存在 bubble，需微批次调度 |
 | **Expert 并行 (EP)** | MoE 的不同 expert 分配到不同 GPU | AllToAll token 路由 | MoE 模型专用 | 呼应第 7 章 GSPO 与 MoE 稳定性 |
 
-<a name="s8-3-4"></a>
+<a id="s8-3-4"></a>
 
 ### 8.3.4 Rollout 与训练的耦合方式
 
@@ -559,13 +559,13 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 **推理加速引擎**：vLLM 和 SGLang 是当前主流选择。它们通过 PagedAttention、连续批处理（continuous batching）、投机解码等技术大幅提升生成吞吐。没有这些引擎，G=64 的组采样在 7B 模型上可能需要数十分钟才能完成一个 batch 的 rollout。
 
-<a name="s8-4"></a>
+<a id="s8-4"></a>
 
 ## 8.4 训练诊断指标
 
 承接并扩展 PPO 文档第 7 章的指标体系。GRPO 场景下部分指标含义发生变化，且有新增指标。
 
-<a name="s8-4-1"></a>
+<a id="s8-4-1"></a>
 
 ### 8.4.1 指标速查表
 
@@ -583,7 +583,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 | **grad_norm** | 梯度范数 | 稳定 | 突增 → 崩溃前兆，加 gradient clipping |
 | **explained_variance** | — | — | **GRPO 没有此指标**（无 critic），这是与 PPO 的重要差异 |
 
-<a name="s8-4-2"></a>
+<a id="s8-4-2"></a>
 
 ### 8.4.2 GRPO 特有的诊断逻辑
 
@@ -593,7 +593,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 **explained_variance 的缺失**：PPO 有 critic 网络提供价值估计，`explained_variance` 衡量 critic 对回报方差的解释比例。GRPO 没有 critic，用组内均值替代了价值函数，因此不存在这个指标。取而代之应监控组内基线的质量：G 的大小、std 的分布、zero_grad_ratio。
 
-<a name="s8-4-3"></a>
+<a id="s8-4-3"></a>
 
 ### 8.4.3 症状驱动的排查顺序清单
 
@@ -607,7 +607,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 6. clip_fraction 正常 → 看 **grad_norm** 是否突增 → 加 gradient clipping 或降学习率
 7. 以上均正常但效果不佳 → 检查 G 是否太小（≥8）、loss_type 是否正确、mask 是否正确
 
-<a name="s8-5"></a>
+<a id="s8-5"></a>
 
 ## 8.5 常见坑清单
 
@@ -630,11 +630,11 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 | 13 | 训练一开始就发散或 loss 极大 | 学习率沿用经典 RL 的 3e-4，破坏预训练权重（第 3 章） | LLM RL 微调用 1e-6 量级，降 1~2 个数量级 |
 | 14 | 配置了 clip 但行为不符合预期 | 把 GRPO 的 clip（比率截断）与梯度裁剪 `clip_grad_norm_` 混淆 | 明确两者作用对象不同：前者截断重要性比率，后者限制梯度范数 |
 
-<a name="s8-6"></a>
+<a id="s8-6"></a>
 
 ## 8.6 学习资源与进阶路径
 
-<a name="s8-6-1"></a>
+<a id="s8-6-1"></a>
 
 ### 8.6.1 论文清单（按推荐阅读顺序）
 
@@ -650,7 +650,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 8. **MiniMax 2025《MiniMax-M1》** (arXiv:2506.13585)：CISPO 与长 CoT 系统。理解 detached IS 权重的设计动机。
 9. **Zheng et al. 2025《Group Sequence Policy Optimization》** (arXiv:2507.18071)：GSPO，序列级比率与 MoE 稳定性。
 
-<a name="s8-6-2"></a>
+<a id="s8-6-2"></a>
 
 ### 8.6.2 代码库
 
@@ -664,7 +664,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 | **Unsloth** (unslothai/unsloth) | 单卡高效 GRPO | 消费级 GPU 微调 |
 | **sail-sg/understand-r1-zero** | Dr.GRPO 官方代码 | 偏差分析实验复现 |
 
-<a name="s8-6-3"></a>
+<a id="s8-6-3"></a>
 
 ### 8.6.3 一条务实的学习路径
 
@@ -687,7 +687,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 
 **第五步：进阶实验**。在 verl 上复现 DAPO 的四项技术开关消融；或实现 GSPO 的序列级比率，对比同设置下的稳定性与 MoE 训练行为。
 
-<a name="s8-7"></a>
+<a id="s8-7"></a>
 
 ## 8.7 本章小结与全文档收尾
 
@@ -700,7 +700,7 @@ Rollout 生成是 LLM RL 的时间瓶颈，通常占总训练时间的 **70%~90%
 5. **β=0 时必须监控 kl_to_ref**：没有 KL 惩罚不等于不需要 KL 监控。策略偏离初始模型的程度必须有独立指标追踪。
 6. **诊断指标是调试的核心工具**：GRPO 没有 explained_variance，取而代之的是 zero_grad_ratio、std_group、completion_length 等特有指标。掌握 8.4 节的排查顺序清单，能在大多数问题发生时快速定位根因。
 
-<a name="h261"></a>
+<a id="h261"></a>
 
 ### 学完这两份文档之后该做什么
 

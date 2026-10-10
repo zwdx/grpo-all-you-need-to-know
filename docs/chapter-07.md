@@ -2,7 +2,7 @@
 
 ---
 
-<a name="chapter-7"></a>
+<a id="chapter-7"></a>
 
 # 第 7 章 序列级方法与变体谱系
 
@@ -16,11 +16,11 @@
 - [7.6 选型建议](#s7-6)
 - [7.7 本章小结与自测](#s7-7)
 
-<a name="s7-1"></a>
+<a id="s7-1"></a>
 
 ## 7.1 变体爆炸的背景与分类框架
 
-<a name="s7-1-1"></a>
+<a id="s7-1-1"></a>
 
 ### 7.1.1 为什么 GRPO 变体如此之多
 
@@ -34,7 +34,7 @@
 
 面对这个局面，读者最需要的不是逐个记忆变体细节，而是建立一个**分类坐标系**，在看到任何新变体时能迅速定位它"改了 GRPO 的哪个组件、治了什么病"。
 
-<a name="s7-1-2"></a>
+<a id="s7-1-2"></a>
 
 ### 7.1.2 四组件分类框架
 
@@ -51,13 +51,13 @@
 
 以下各节按此框架展开，重点讲解 ③ 和 ② 中影响力最大的两支——GSPO 与 CISPO。
 
-<a name="s7-2"></a>
+<a id="s7-2"></a>
 
 ## 7.2 GSPO：序列级重要性比率的数学动机
 
 GSPO（Group Sequence Policy Optimization）由阿里巴巴 Qwen 团队提出（Zheng et al., 2025, arXiv:2507.18071），是 GRPO 家族中将优化粒度从 token 级提升到序列级的代表性工作。本节从数学机理出发，解释为什么这种粒度提升是必要的，以及它带来了什么本质变化。
 
-<a name="s7-2-1"></a>
+<a id="s7-2-1"></a>
 
 ### 7.2.1 Token 级 IS 比率的三重问题
 
@@ -73,7 +73,7 @@ $$r_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q, o_{i,<t})}{\pi_{\theta_{old
 
 **问题三：MoE 架构下的路由抖动灾难。** GSPO 论文明确指出，GRPO 在 Mixture-of-Experts（MoE）模型上的训练极不稳定。机理如下：MoE 的路由器（router）在每个 token 上动态选择激活哪些专家。策略更新会改变路由决策，而路由改变又会让 token 级的 log 概率发生与"内容质量"无关的剧烈跳变——同一个 token 在不同专家组合下的条件概率可能差异巨大。于是 $`r_{i,t}`$ 出现与优化目标无关的巨大波动，导致梯度爆炸或训练崩溃。这种抖动是 MoE 架构固有的，与策略本身的优劣无关，因此属于需要被消除的噪声。
 
-<a name="s7-2-2"></a>
+<a id="s7-2-2"></a>
 
 ### 7.2.2 GSPO 的序列级比率
 
@@ -89,7 +89,7 @@ $$J^{GSPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \min\left(s_i(\thet
 
 其中 $`\hat{A}_i`$ 仍为序列级优势（如 GRPO 的组均值基线或 Dr.GRPO 的修正形式）。注意此处 clip 作用于**整条回答**：一条回答要么整体被强化、要么整体被削弱、要么整体被 clip，优化单元与奖励单元完全对齐。（注：上述目标函数是序列级形式的直接类比，具体细节以原论文为准。）
 
-<a name="s7-2-3"></a>
+<a id="s7-2-3"></a>
 
 ### 7.2.3 梯度分析：GSPO vs GRPO
 
@@ -111,25 +111,25 @@ $$\nabla_\theta J^{GRPO} \propto \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G \frac{1
 
 **关键区别**：GRPO 让每个 token 用自己的 $`r_{i,t}`$ 独立加权。当某个 token 的 $`r_{i,t}`$ 因路由抖动或其他噪声异常偏高时，该 token 的梯度会被过度放大；而在 GSPO 中，这种局部异常被几何平均平滑掉了。**GSPO 用一个序列级标量统一加权所有 token 的梯度，GRPO 则让每个 token 用自己的比率加权**——前者方差更低、对局部噪声更鲁棒，后者可能对个别 token 过度反应。这是理解两者差异的关键。
 
-<a name="s7-2-4"></a>
+<a id="s7-2-4"></a>
 
 ### 7.2.4 ε 的量级差异
 
 由于 $`s_i(\theta)`$ 是 token 级比率的几何平均，根据大数定律的性质，其偏离 1 的幅度天然比单个 $`r_{i,t}`$ 小得多。直觉上，多个独立随机变量的几何平均比方差最大的那个个体更接近期望值。因此 GSPO 的 clip 阈值 $`\varepsilon`$ 需要设得比 GRPO 显著更小——若 GRPO 使用 $`\varepsilon = 0.2`$，GSPO 可能需要小若干个数量级的 $`\varepsilon`$ 才能达到等效的约束强度。**具体数值请以原论文为准，不要直接套用 GRPO 的超参。** 若错误地使用 GRPO 量级的 $`\varepsilon`$，序列级 clip 几乎永远不会触发，等同于退化为无 clip 的 REINFORCE。
 
-<a name="s7-2-5"></a>
+<a id="s7-2-5"></a>
 
 ### 7.2.5 GSPO 的实践影响
 
 GSPO 论文报告其在 Qwen3 系列模型的 RL 训练中得到了应用，尤其在 MoE 架构上显著提升了训练稳定性。这验证了上述理论分析：当 token 级比率因架构特性（如 MoE 路由）而产生与优化目标无关的剧烈波动时，序列级聚合是一种有效的降噪手段。对于非 MoE 的 dense 模型，GSPO 的收益可能不如 MoE 场景显著，但其"粒度对齐"的设计理念仍具参考价值。
 
-<a name="s7-3"></a>
+<a id="s7-3"></a>
 
 ## 7.3 CISPO：保留全部 Token 梯度
 
 CISPO（Clipped IS-weight Policy Optimization）出自 MiniMax-M1 技术报告（arXiv:2506.13585），代表了 GRPO 变体谱系中与 GSPO 截然不同的另一条路线：它不改变优化粒度，而是改变裁剪机制本身，目标是**保留所有 token 的梯度**。
 
-<a name="s7-3-1"></a>
+<a id="s7-3-1"></a>
 
 ### 7.3.1 Hard Clip 的信息丢弃问题
 
@@ -137,7 +137,7 @@ CISPO（Clipped IS-weight Policy Optimization）出自 MiniMax-M1 技术报告�
 
 一条上万 token 的推理回答中，真正决定推理质量的往往是少数"关键转折 token"——例如反思词 "wait"、"let me recheck"、"alternatively" 等。这些 token 的出现标志着模型在进行自我纠错或路径切换，是高质量推理的核心信号。然而，正因为它们是低概率事件（模型在旧策略下不太可能生成这些词），其重要性比率 $`r_{i,t}`$ 容易远超 clip 上界，从而被 hard clip 完全丢弃梯度。结果是：模型学到了大量"常规 token"的信号，却丢失了最关键的"反思 token"的信号，推理能力难以持续提升。
 
-<a name="s7-3-2"></a>
+<a id="s7-3-2"></a>
 
 ### 7.3.2 CISPO 的解法：Detached IS 权重
 
@@ -147,7 +147,7 @@ $$L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t \text{sg}\!\l
 
 其中 $`\hat{r}^{IS}_{i,t} = \text{clip}(r^{IS}_{i,t},\, 0,\, \varepsilon^{IS}_{high})`$ 是被裁剪的 IS 权重，$`\text{sg}(\cdot)`$ 表示 stop-gradient（即该部分不参与求导）。（注：这是依据"CISPO 裁剪 IS 权重作为 detached 系数而非 hard ratio clipping"这一核心描述的公式重构，**具体形式请以 MiniMax-M1 技术报告为准**。）
 
-<a name="s7-3-3"></a>
+<a id="s7-3-3"></a>
 
 ### 7.3.3 梯度对比：CISPO vs PPO/GRPO
 
@@ -161,7 +161,7 @@ $$\nabla_\theta L^{CISPO} = -\mathbb{E}\left[\frac{1}{\sum_i |o_i|}\sum_i \sum_t
 
 对比 PPO/GRPO 的梯度：当 $`r_{i,t} > 1+\varepsilon`$ 且 $`\hat{A}_i > 0`$ 时，$`\min(r_{i,t}\hat{A}_i, \text{clip}(r_{i,t})\hat{A}_i) = (1+\varepsilon)\hat{A}_i`$，该项对 $`\theta`$ 的梯度为零（因为 clip 后的值是常数）。**Hard clip 直接杀死梯度，CISPO 的 detached 权重只是缩放梯度**——这是两者的本质区别。
 
-<a name="s7-3-4"></a>
+<a id="s7-3-4"></a>
 
 ### 7.3.4 为什么这对长 CoT 重要
 
@@ -172,59 +172,59 @@ CISPO 的设计实现了"保信号"与"控方差"的折中：
 
 这种设计特别适合长 CoT 推理模型的 RL 训练，其中关键信号的稀疏性与 IS 比率的极端值并存。MiniMax-M1 技术报告将 CISPO 用于其长 CoT 推理模型的训练，验证了这一思路的有效性。
 
-<a name="s7-4"></a>
+<a id="s7-4"></a>
 
 ## 7.4 其他值得了解的变体
 
 以下变体各有定位，简要概述以帮助读者建立完整谱系认知。
 
-<a name="s7-4-1"></a>
+<a id="s7-4-1"></a>
 
 ### 7.4.1 RLOO
 
 RLOO（REINFORCE Leave-One-Out，Ahmadian et al., 2024, arXiv:2402.14740）使用留一法基线（见第 2 章），无 clip 无 KL，是 GRPO 的极简近亲。实践中与 GRPO 效果常接近，TRL 框架有独立实现。适合想理解"组内基线的最小可行版本"的读者，也适合作为消融实验的 baseline。
 
-<a name="s7-4-2"></a>
+<a id="s7-4-2"></a>
 
 ### 7.4.2 Dr.GRPO
 
 Dr.GRPO（arXiv:2503.20783，第 5 章已详述）去掉长度归一化 $`(1/|o_i|)`$ 与 std 归一化，消除两种系统性偏差。在谱系中属于"改优势估计 + 改聚合方式"类。当观察到回答长度失控或难度依赖的训练不稳定时，Dr.GRPO 的修正是首选起点。
 
-<a name="s7-4-3"></a>
+<a id="s7-4-3"></a>
 
 ### 7.4.3 GVPO
 
 GVPO（Group Variance Policy Optimization，NeurIPS 2025，作业帮与港科大广州）的核心特点是**避免使用重要性采样**，损失等价于 MSE 形式，理论上给出唯一最优解保证，支持无 IS 的 off-policy 训练从而可复用历史数据，对超参 $`\beta`$ 不敏感。（注：此条信息来自二手资料，**以原论文为准**。）GVPO 的意义在于绕开了 IS 方差问题这条根本路径，而非在 IS 框架内做修补。
 
-<a name="s7-4-4"></a>
+<a id="s7-4-4"></a>
 
 ### 7.4.4 BAPO
 
 BAPO（Balanced Policy Optimization）采用自适应裁剪以平衡正负样本的梯度贡献、防止熵崩塌。其目标与 DAPO 的 clip-higher 相近（都是解决正负样本不对称问题），但机制不同：BAPO 动态调整 clip 范围而非固定解耦上下界。
 
-<a name="s7-4-5"></a>
+<a id="s7-4-5"></a>
 
 ### 7.4.5 SAPO
 
 SAPO（Soft Adaptive Policy Optimization）用软门控函数替代硬 clip，提供更平滑的梯度衰减曲线。有分析指出它在某些参数设置下退化到类 GSPO 的序列级形式，暗示序列级优化与软裁剪之间存在深层联系。
 
-<a name="s7-4-6"></a>
+<a id="s7-4-6"></a>
 
 ### 7.4.6 长度偏差的后续工作
 
 LUSPO（Length-Unbiased Sequence Policy Optimization）指出 GSPO 本身仍存在长度偏差并加以修正。这说明"长度偏差"是贯穿 token 级与序列级方法的共同难题（呼应第 5 章），并非切换到序列级就能自动解决。
 
-<a name="s7-4-7"></a>
+<a id="s7-4-7"></a>
 
 ### 7.4.7 关于变体数量的声明
 
 **这个领域变体极多且仍在快速演进**（2025–2026 年间新变体持续出现），本章只覆盖影响力最大的几支。其他已知名称包括 REINFORCE++-Baseline、GEPO、ESPO、MO-GRPO（多目标 reward hacking 缓解）、DAGRPC 等。读者遇到新变体时，应使用 7.1 节的四类框架去定位它改了什么组件，并以其原论文与主流框架（verl、TRL、OpenRLHF、NeMo-RL、AReaL）的实现为准。
 
-<a name="s7-5"></a>
+<a id="s7-5"></a>
 
 ## 7.5 谱系图与演化逻辑
 
-<a name="s7-5-1"></a>
+<a id="s7-5-1"></a>
 
 ### 7.5.1 演化树
 
@@ -246,7 +246,7 @@ PPO (2017)
      └── 绕开 IS：MSE 损失 + off-policy [改④] ──→ GVPO (2025)
 ```
 
-<a name="s7-5-2"></a>
+<a id="s7-5-2"></a>
 
 ### 7.5.2 时间线表格
 
@@ -263,11 +263,11 @@ PPO (2017)
 
 （注：表中"—"表示机构信息未在核实清单中给出，以原论文为准。）
 
-<a name="s7-6"></a>
+<a id="s7-6"></a>
 
 ## 7.6 选型建议
 
-<a name="s7-6-1"></a>
+<a id="s7-6-1"></a>
 
 ### 7.6.1 决策路径
 
@@ -280,7 +280,7 @@ PPO (2017)
 5. **想复用历史 rollout 数据 / 担心 IS 方差** → 考虑 **GVPO** 类无 IS 方法。但注意第 2 章指出组内基线本身不适合跨 batch 复用，需配合相应的基线修正。
 6. **资源受限、只想跑通验证想法** → **RLOO**（最简单，无 clip 无 KL）或直接用 GRPO 的小 $`G`$ 配置。
 
-<a name="s7-6-2"></a>
+<a id="s7-6-2"></a>
 
 ### 7.6.2 横向对比大表
 
@@ -297,17 +297,17 @@ PPO (2017)
 
 （注：表中标注"以原论文为准"的条目表示核实清单中未给出确切信息，请勿直接引用。）
 
-<a name="s7-6-3"></a>
+<a id="s7-6-3"></a>
 
 ### 7.6.3 务实建议
 
 **不要盲目追新变体。** 多数变体的收益在特定设置下才显著，且很多改动可组合。建议从 DAPO 或 GRPO 的成熟框架实现起步，先跑通并建立自己的基线与诊断能力（见第 8 章），再针对观察到的具体病症引入对应改动，**每次只改一处并做消融**。变体选择应由诊断驱动，而非由论文发表时间驱动。
 
-<a name="s7-7"></a>
+<a id="s7-7"></a>
 
 ## 7.7 本章小结与自测
 
-<a name="h233"></a>
+<a id="h233"></a>
 
 ### 要点回顾
 
@@ -318,7 +318,7 @@ PPO (2017)
 5. 长度偏差是贯穿 token 级与序列级方法的共同难题，Dr.GRPO 与 LUSPO 分别从不同角度修正。
 6. 选型应由诊断驱动：dense 模型用 DAPO/GRPO，MoE 用 GSPO，长 CoT 稀疏信号用 CISPO，长度失控用 Dr.GRPO。
 
-<a name="h234"></a>
+<a id="h234"></a>
 
 ### 自测题
 

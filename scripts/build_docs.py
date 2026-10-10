@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-ANCHOR = re.compile(r'^<a name="[^"]+"></a>\n\n', re.M)
+ANCHOR = re.compile(r'^<a (?:name|id)="[^"]+"></a>\n\n', re.M)
 TOC = re.compile(r'\n<!-- toc:start -->\n.*?<!-- toc:end -->\n\n', re.S)
 CHAPTER = re.compile(r'^第\s*(\d+)\s*章')
 
@@ -40,7 +40,7 @@ def headings(text):
 
 def annotate(lines, entries, offset=0):
     anchors = {entry[0] - offset: entry[3] for entry in entries}
-    return '\n'.join(('<a name="' + anchors[i] + '"></a>\n\n' if i in anchors else '') + line
+    return '\n'.join(('<a id="' + anchors[i] + '"></a>\n\n' if i in anchors else '') + line
                      for i, line in enumerate(lines)).rstrip() + '\n'
 
 
@@ -112,7 +112,7 @@ def generate(source):
 def check_links(files):
     count = 0
     for name, text in files.items():
-        ids = re.findall(r'<a name="([^"]+)"></a>', text)
+        ids = re.findall(r'<a id="([^"]+)"></a>', text)
         assert len(ids) == len(set(ids)), f'{name}: 锚点重复'
         assert text.count('<details>') == text.count('</details>') == text.count('<summary>'), f'{name}: 折叠标签未配对'
         headings(text)
@@ -125,7 +125,7 @@ def check_links(files):
             assert target.is_relative_to(ROOT), f'{name}: 链接越过仓库边界：{link}'
             assert target.is_file(), f'{name}: 文件不存在：{link}'
             if url.fragment:
-                assert '<a name="' + unquote(url.fragment) + '"></a>' in target.read_text(encoding='utf-8'), f'{name}: 锚点不存在：{link}'
+                assert '<a id="' + unquote(url.fragment) + '"></a>' in target.read_text(encoding='utf-8'), f'{name}: 锚点不存在：{link}'
             count += 1
     return count
 
