@@ -131,7 +131,7 @@ for (const page of pages) {
   files.set(page.file, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escape(plain(page.title))} · ${topic} 学习教程</title><meta name="description" content="${topic} 中文系统教程：数学推导、算法理解、工程实践与章末练习。">
-<link rel="stylesheet" href="site.css">${styles}<script src="site.js" defer></script></head>
+<link rel="stylesheet" href="site.css">${styles}<script src="search-index.js" defer></script><script src="site.js" defer></script></head>
 <body>${cache}<a class="skip" href="#main">跳到正文</a>
 <header class="topbar"><div class="topbar-inner"><a class="brand" href="index.html">${topic}<small>ALL YOU NEED TO KNOW</small></a>
 <div class="top-links"><button id="open-search" type="button" aria-haspopup="dialog">搜索</button><a class="companion" href="https://zwdx.github.io/${companion}-all-you-need-to-know/">${companion.toUpperCase()} 教程</a><a href="${repo}">GitHub</a></div></div></header>
@@ -143,7 +143,7 @@ for (const page of pages) {
 }
 files.set('site.css', read('scripts/site.css'));
 files.set('site.js', read('scripts/site.js'));
-files.set('search-index.json', JSON.stringify(search));
+files.set('search-index.js', 'const tutorialSearchIndex = ' + JSON.stringify(search) + ';\n');
 files.set('.nojekyll', '');
 
 // Fail builds on broken local links or missing SVG glyphs, without a browser/framework dependency.
