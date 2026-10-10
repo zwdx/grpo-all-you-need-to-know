@@ -31,6 +31,7 @@ const dialog = document.querySelector('#search-dialog');
 const input = document.querySelector('#search-input');
 const results = document.querySelector('#search-results');
 const status = document.querySelector('#search-status');
+const tutorialSearchIndex = JSON.parse(document.querySelector('#search-data').textContent);
 results.addEventListener('click', event => { if (event.target.closest('a')) dialog.close(); });
 const openSearch = () => { dialog.showModal(); input.focus(); };
 document.querySelector('#open-search').addEventListener('click', openSearch);
@@ -45,10 +46,6 @@ input.addEventListener('input', () => {
   const query = input.value.trim().toLowerCase();
   results.replaceChildren();
   if (!query) { status.textContent = '输入章节名、概念或公式关键词。'; return; }
-  if (typeof tutorialSearchIndex === 'undefined') {
-    status.textContent = '搜索暂时无法加载，请刷新后重试。';
-    return;
-  }
   const words = query.split(/\s+/);
   const matches = tutorialSearchIndex.filter(item => words.every(word => (item.title + ' ' + item.text).toLowerCase().includes(word)));
   status.textContent = matches.length ? `找到 ${matches.length} 个小节，显示前 20 项。` : '未找到匹配的小节。';

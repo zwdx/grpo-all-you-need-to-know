@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {Marked, Renderer} from 'marked';
@@ -131,7 +132,7 @@ for (const page of pages) {
   files.set(page.file, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escape(plain(page.title))} · ${topic} 学习教程</title><meta name="description" content="${topic} 中文系统教程：数学推导、算法理解、工程实践与章末练习。">
-<link rel="stylesheet" href="site.css">${styles}<script src="search-index.js" defer></script><script src="site.js" defer></script></head>
+<link rel="stylesheet" href="site.css">${styles}<script id="search-data" type="application/json">__SEARCH_INDEX__</script><script src="site.js" defer></script></head>
 <body>${cache}<a class="skip" href="#main">跳到正文</a>
 <header class="topbar"><div class="topbar-inner"><a class="brand" href="index.html">${topic}<small>ALL YOU NEED TO KNOW</small></a>
 <div class="top-links"><button id="open-search" type="button" aria-haspopup="dialog">搜索</button><a class="companion" href="https://zwdx.github.io/${companion}-all-you-need-to-know/">${companion.toUpperCase()} 教程</a><a href="${repo}">GitHub</a></div></div></header>
@@ -141,9 +142,12 @@ for (const page of pages) {
 <dialog id="search-dialog" aria-labelledby="search-title"><div class="search-head"><h2 id="search-title">搜索教程</h2><button id="close-search" type="button" aria-label="关闭搜索">关闭</button></div><label for="search-input">章节名、概念或公式关键词</label><input id="search-input" type="search" autocomplete="off" placeholder="例如：GAE、长度偏差、重要性采样"><p id="search-status" role="status">输入章节名、概念或公式关键词。</p><ul id="search-results"></ul></dialog>
 </body></html>\n`);
 }
-files.set('site.css', read('scripts/site.css'));
-files.set('site.js', read('scripts/site.js'));
-files.set('search-index.js', 'const tutorialSearchIndex = ' + JSON.stringify(search) + ';\n');
+for (const [name, content] of [['site.css', read('scripts/site.css')], ['site.js', read('scripts/site.js')]]) {
+  const versioned = name.replace('.', '-' + createHash('sha256').update(content).digest('hex').slice(0, 12) + '.');
+  files.set(versioned, content);
+  for (const page of pages) files.set(page.file, files.get(page.file).replace(`"${name}"`, `"${versioned}"`));
+}
+for (const page of pages) files.set(page.file, files.get(page.file).replace('__SEARCH_INDEX__', JSON.stringify(search).replaceAll('<', '\\u003c')));
 files.set('.nojekyll', '');
 
 // Fail builds on broken local links or missing SVG glyphs, without a browser/framework dependency.
